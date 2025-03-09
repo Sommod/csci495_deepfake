@@ -1,11 +1,9 @@
-# Some inputted text
+'''
+    Inports
+'''
 import os
-import time
+import datetime
+from Util import Constants
 
-# Constant Variables
-CONST_CUR_DIR = os.path.dirname(os.path.realpath(__file__))
-
-def main():
-    print('Hello')
-
-main()
+if(__name__ == "__main__"):
+    print(os.path.join(Constants.CURRENT_DIR, datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')))

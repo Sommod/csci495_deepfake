@@ -7,4 +7,65 @@ any manipulation.
 Log:
     19 Jan 2025:
 	- Created Util file
+    09 March 2025:
+    - Added handler for Zip Files and Extraction
+    - Added Constant Class
 """
+
+# Imports
+import zipfile as zip
+import os
+import datetime
+
+class Constants:
+    '''
+    Type: Class\n
+    Name: Constants\n
+    Description: This class is used specifically to house constant values that can be
+                 used without the need to re-initialize or calculate.
+    '''
+
+    def __init__(self):
+        pass
+
+    CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+    '''Gets the current directory of the program'''
+
+#import your data as a zip file this cell will extract your images into the DeepfakeDetectionImagesFolder 
+#the next cells will process the images as needed
+#theoretically we will all put our zip files in here and extract them all into the folder then rearrange the folder so that all images are in thier own grouped files
+### files =zip.ZipFile("DeepfakeDetectionFiles/real_and_fake_face_detection.zip",'r' )#change real_and_fake_face as needed for your zip file name
+### files.extractall('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder')
+### files.close()
+
+def unzip_files(zipPath: str, fileLoc: str = Constants.CURRENT_DIR) -> bool:
+    '''
+    Name: unzip_files\n
+    Type: Function\n
+    Description: Unzips an archive. By default, the Timestamp and current directory are used
+                 as the extraction location, but a location can be given using the fileLoc
+                 parameter.\n
+    Parameters:\n
+        @param zipPath - Location of the zip archive\n
+        @param fileLoc - Location of extraction\n
+    Return:\n
+        True - If files were successfully extracted, otherwise False\n
+    '''
+
+    # Inner method for getting a DateTime Stamp
+    def get_unique_name():
+        return datetime.datetime.now().strftime().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Try-Catch for extracting files from Zip File
+    try:
+        files = zip.ZipFile(zipPath, "r")
+
+        if(fileLoc == Constants.CURRENT_DIR):
+            fileLoc = os.path.join(fileLoc, get_unique_name(), "/")
+
+        files.extractall(fileLoc)
+        files.close()
+        return True
+    except:
+        print(f'Error: Could not extract the files of {zipPath}.')
+        return False
