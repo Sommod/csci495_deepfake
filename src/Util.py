@@ -54,7 +54,7 @@ def unzip_files(zipPath: str, fileLoc: str = Constants.CURRENT_DIR) -> bool:
 
     # Inner method for getting a DateTime Stamp
     def get_unique_name():
-        return datetime.datetime.now().strftime().strftime('%Y-%m-%d %H:%M:%S')
+        return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     # Try-Catch for extracting files from Zip File
     try:
