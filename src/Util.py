@@ -46,7 +46,7 @@ class Constants:
 ### files.close()
 class Action:
 
-    def unzip_files(zipPath: str, fileLoc: str = Constants.DIR_CURRENT) -> bool:
+    def unzip_files(self, zipPath: str, fileLoc: str = Constants.DIR_CURRENT) -> bool:
         '''
         Name: unzip_files\n
         Type: Function\n
@@ -65,7 +65,7 @@ class Action:
             files = zip.ZipFile(zipPath, "r")
 
             if(fileLoc == Constants.CURRENT_DIR):
-                fileLoc = os.path.join(fileLoc, get_timestamp(), "/")
+                fileLoc = os.path.join(fileLoc, self.get_timestamp(), "/")
 
             files.extractall(fileLoc)
             files.close()
