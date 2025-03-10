@@ -14,26 +14,60 @@
 import multiprocessing
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image
 import os
+import cv2
+from PIL import Image
+from Util import Constants, Action
 
-#these can be adjusted for your files as needed
-#is file path my filepath is awful hopefully yours will be better
-#i have no idea what format your images will be in so ive compiled a list of those that I can think of if yours isnt there tough add it in
+class Preprocess():
+    '''
+        Class to handle the preprocessing methods and actions
+    '''
+
+    def __init__(self):
+        pass
+
+    def perform(self) -> bool:
+        '''
+            This performs the operation of pre-processing the data into the corresponding location and information.\n
+            First, the folder locations are checked to determine what course of action to pursue. If the files exist, then no\n
+            pre-processing is necessary. If not, then extraction and saving of the data is performed. Two different methods are\n
+            invoked when handling the images, as such Multi-Processing is used to perform in parallel the methods of FG/BG segergaion.\n
+            Finally, the images are then compared and combined with only their similarities intact to use as the processing image.
+        '''
+
+        if(not self.__check_files()):
+            for folder in os.listdir(os.path.join(Constants.DIR_TRAINING, "extractedFiles")):
+                if(not os.path.isdir(folder)):
+                    continue
+
+                for files in os.listdir(folder):
+                    if(files.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'))):
+                        os.mkdir(''' TODO: Get name of Zip folder and put into Gray Folder ''')
+
+
+    def __check_files(self) -> bool:
+        '''
+            This checks if there are files within the extracted files directory. If not, then this will\n
+            check if the training folder contains any ZIP files. Should ZIP files exist without any extracted\n
+            files, then this will open each archive and save the data into their respective folders.
+        '''
+        pass
+
         
-for files in os.listdir('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/real_and_fake_face_detection/real_and_fake_face/training_fake'):
-    if files.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff')): 
-        imagePath=os.path.join('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/real_and_fake_face_detection/real_and_fake_face/training_fake',files)
-        try:
-            img=Image.open(imagePath)
-            #a new filepath to save the images to
-            newFilepath=os.path.join('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/GreyScaledImages',files)
-            #processing face extraction and greyscale for now
+# for files in os.listdir('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/real_and_fake_face_detection/real_and_fake_face/training_fake'):
+#     if files.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff')): 
+#         imagePath=os.path.join('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/real_and_fake_face_detection/real_and_fake_face/training_fake',files)
+#         try:
+#             img=Image.open(imagePath)
+#             #a new filepath to save the images to
+#             newFilepath=os.path.join('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/GreyScaledImages',files)
+#             #processing face extraction and greyscale for now
 
-            #converts to greyscale using L rather than P L is black and white whereas P is color palate
-            greyImage=img.convert('L')
-            greyImage.save(newFilepath)
+#             #converts to greyscale using L rather than P L is black and white whereas P is color palate
+#             greyImage=img.convert('L')
+#             greyImage.save(newFilepath)
             
-            img.close()
-        except Exception as e:
-            print(f"Error in processing {files}:{e}")
+#             img.close()
+#         except Exception as e:
+#             print(f"Error in processing {files}:{e}")
