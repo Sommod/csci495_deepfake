@@ -25,6 +25,9 @@ class Preprocess():
     '''
 
     def __init__(self):
+        '''
+            Constructor for the Preprocess class
+        '''
         pass
 
     def perform(self) -> bool:
@@ -36,14 +39,23 @@ class Preprocess():
             Finally, the images are then compared and combined with only their similarities intact to use as the processing image.
         '''
 
-        if(not self.__check_files()):
+        if(self.__check_files()):
             for folder in os.listdir(os.path.join(Constants.DIR_TRAINING, "extractedFiles")):
                 if(not os.path.isdir(folder)):
                     continue
 
                 for files in os.listdir(folder):
                     if(files.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'))):
-                        os.mkdir(''' TODO: Get name of Zip folder and put into Gray Folder ''')
+                        try:
+                            img = Image.open(os.path.join(folder, files))
+                            newImPath = os.path.join(Constants.DIR_TRAINING, "gray" + "/temp/" + files)
+
+                            grey = img.convert('L')
+                            grey.save(newImPath)
+                        except Exception as e:
+                            print(f"Error in processing {files}:{e}")
+        
+        pass
 
 
     def __check_files(self) -> bool:
@@ -52,7 +64,7 @@ class Preprocess():
             check if the training folder contains any ZIP files. Should ZIP files exist without any extracted\n
             files, then this will open each archive and save the data into their respective folders.
         '''
-        pass
+        return True
 
         
 # for files in os.listdir('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/real_and_fake_face_detection/real_and_fake_face/training_fake'):

@@ -64,7 +64,7 @@ class Action:
         try:
             files = zip.ZipFile(zipPath, "r")
 
-            if(fileLoc == Constants.CURRENT_DIR):
+            if(fileLoc == Constants.DIR_CURRENT):
                 fileLoc = os.path.join(fileLoc, self.get_timestamp(), "/")
 
             files.extractall(fileLoc)
