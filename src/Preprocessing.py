@@ -55,8 +55,59 @@ class Preprocess():
                         except Exception as e:
                             print(f"Error in processing {files}:{e}")
         
-        pass
+        for folder in os.listdir(os.path.join(Constants.DIR_TRAINING, "extractedFiles")): # TODO: Need to implement multi-processing
+            self.__performWatershed(folder)
+            self.__performContour(folder)
 
+        print(f'Pre-Processing Complete.')
+
+    def __performWatershed(path: str):
+        '''
+            This separates the Foreground from the background using the Watershed method.
+        '''
+        for files in os.listdir(path):
+            image = cv2.imread(files)
+            ret, threst = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+            # Remove noise
+            kernel = np.ones((3,3), np.uint8)
+            opening = cv2.morphologyEx(threst, cv2.MORPH_OPEN, kernel, iterations = 2)
+
+            # Ensure correct background
+            ensureBG = cv2.dilate(open, kernel, iterations = 3)
+            
+            # Ensure correct foreground
+            distTransform  = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+            ret, ensureFG = cv2.threshold(distTransform, 0.7 * distTransform.max(), 255, 0)
+
+            # find unknown regions
+            ensureFG = np.uint8(ensureFG)
+            unknown = cv2.subtract(ensureBG, ensureFG)
+            
+            # Marker labeling
+            ret, markers = cv2.connectedComponents(ensureFG)
+            markers += 1
+            markers[unknown == 255] = 0
+
+            # Perform watershed method
+            markers = cv2.watershed(image, markers)
+            image[markers == -1] = [255, 0, 0]
+    
+    def __performContour(path: str):
+        '''
+            This draws the contour lines the separate the Foreground from the background.
+        '''
+        for files in os.listdir(path):
+            # Input image. (Note: This image should be GREY-SCALED).
+            image = cv2.imread(files)
+
+            # Thresh image and find the Contours of the image
+            ret, thresh = cv2.threshold(image, 127, 255, 0)
+            contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            # Draw the Contours onto the image for further processing
+            for contour in contours:
+                cv2.drawContours(image, [contour], 0, (0,255,0), 3)
 
     def __check_files(self) -> bool:
         '''
@@ -65,21 +116,3 @@ class Preprocess():
             files, then this will open each archive and save the data into their respective folders.
         '''
         return True
-
-        
-# for files in os.listdir('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/real_and_fake_face_detection/real_and_fake_face/training_fake'):
-#     if files.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff')): 
-#         imagePath=os.path.join('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/real_and_fake_face_detection/real_and_fake_face/training_fake',files)
-#         try:
-#             img=Image.open(imagePath)
-#             #a new filepath to save the images to
-#             newFilepath=os.path.join('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder/GreyScaledImages',files)
-#             #processing face extraction and greyscale for now
-
-#             #converts to greyscale using L rather than P L is black and white whereas P is color palate
-#             greyImage=img.convert('L')
-#             greyImage.save(newFilepath)
-            
-#             img.close()
-#         except Exception as e:
-#             print(f"Error in processing {files}:{e}")
