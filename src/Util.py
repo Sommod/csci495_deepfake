@@ -45,33 +45,37 @@ class Constants:
 ### files.extractall('DeepfakeDetectionFiles/DeepfakeDetectionImageFolder')
 ### files.close()
 class Action:
-
-    def unzip_files(self, zipPath: str, fileLoc: str = Constants.DIR_CURRENT) -> bool:
-        '''
-        Name: unzip_files\n
-        Type: Function\n
-        Description: Unzips an archive. By default, the Timestamp and current directory are used
-                    as the extraction location, but a location can be given using the fileLoc
-                    parameter.\n
-        Parameters:\n
-            @param zipPath - Location of the zip archive
-            @param fileLoc - Location of extraction\n
-        Return:\n
-            True - If files were successfully extracted, otherwise False\n
-        '''
+    def __init__(self):
+        pass
         
-        # Try-Catch for extracting files from Zip File
+    def extract(self, force: bool = False) -> bool:
+        '''Extracts the Zip files into the extracted folder
+
+        This finds all the .ZIP files within the 'zip' folder and extracts each one
+        into their unzipped format within the 'extracted' folder. The name of the
+        zip file is also the name used for the extracted folder name. When checking
+        if the extracted data already exists, the names of the ZIP files are used.
+        Additionally, the function can be forced to override already extracted data.
+
+        Args:
+            force (bool, optional): Forces the function to extract the files, overidding existing folders.
+
+        Returns:
+            bool: `True` If zip files were successfully extracted, `False` otherwise
+        '''
         try:
-            files = zip.ZipFile(zipPath, "r")
+            zipPath: list[str] = [Constants.DIR_TRAINING, 'zip']
+            extractPath: list[str] = [Constants.DIR_TRAINING, 'extracted']
 
-            if(fileLoc == Constants.DIR_CURRENT):
-                fileLoc = os.path.join(fileLoc, self.get_timestamp(), "/")
+            for zips in os.listdir('\\'.join(zipPath)):
+                files = zip.ZipFile(os.path.join('\\'.join(zipPath), zips), 'r')
 
-            files.extractall(fileLoc)
-            files.close()
+                files.extractall('\\'.join(extractPath))
+                files.close()
             return True
-        except:
-            print(f'Error: Could not extract the files of {zipPath}.')
+        
+        except IOError as e:
+            print(f'Error, could not extract {files} without error.')
             return False
         
     def get_timestamp():
