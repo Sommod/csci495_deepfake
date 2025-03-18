@@ -78,8 +78,19 @@ class Action:
             print(f'Error, could not extract {files} without error.')
             return False
         
-    def get_timestamp():
+    def get_timestamp() -> str:
         '''
             Gets the current time, useful for file/folder naming
+
+            Returns:
+                str: String format of the DateTime
         '''
         return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    def toPath(**items) -> str:
+        ret: str = ''
+
+        for i in items.items():
+            ret = os.path.join(ret, i)
+
+        return ret

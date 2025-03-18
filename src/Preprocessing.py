@@ -16,35 +16,35 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import cv2
+import zipfile as zip
 from Util import Action, Constants
 from PIL import Image
 
-class Preprocess():
+def perform(force: bool = False) -> bool:
     '''
-        Class to handle the preprocessing methods and actions
+        This performs the operation of pre-processing the data into the corresponding location and information.
+        First, the folder locations are checked to determine what course of action to pursue. If the files exist, then no\n
+        pre-processing is necessary. If not, then extraction and saving of the data is performed. Two different methods are\n
+        invoked when handling the images, as such Multi-Processing is used to perform in parallel the methods of FG/BG segergaion.\n
+        Finally, the images are then compared and combined with only their similarities intact to use as the processing image.
     '''
 
-    def __init__(self):
-        '''
-            Constructor for the Preprocess class
-        '''
-        pass
+    # Ensure all folders for the data exist
+    __ensureFolders()
 
-    def perform(self) -> bool:
-        '''
-            This performs the operation of pre-processing the data into the corresponding location and information.
-            First, the folder locations are checked to determine what course of action to pursue. If the files exist, then no\n
-            pre-processing is necessary. If not, then extraction and saving of the data is performed. Two different methods are\n
-            invoked when handling the images, as such Multi-Processing is used to perform in parallel the methods of FG/BG segergaion.\n
-            Finally, the images are then compared and combined with only their similarities intact to use as the processing image.
-        '''
-        pass
+def __extractFiles(force: bool = False):
+    for zips in os.listdir(Action.toPath(Constants.DIR_TRAINING, 'zip')):
+        if(not os.path.exists(Action.toPath(Constants.DIR_TRAINING, 'extracted', zips)) or force):
+            os.remove(Action.toPath(Constants.DIR_TRAINING, 'extracted', zips))
+            zFile = zip.ZipFile(Action.toPath(Constants.DIR_TRAINING, 'zip', zips))
+            zFile.extractall(os.path.join)
 
-    def __ensureFolders(self):
-        '''Ensures that the folders for model exist.'''
-        fldr: list[str] = ['zip', 'extracted', 'grey']
-        for f_name in fldr:
-            path: str = '\\'.join([Constants.DIR_TRAINING, f_name])
+def __ensureFolders(self):
+    '''Ensures that the folders for model exist.'''
 
-            if(not os.path.exists(path)):
-                os.mkdir(path)
+    fldr: list[str] = ['zip', 'extracted', 'grey']
+    for f_name in fldr:
+        path: str = '\\'.join([Constants.DIR_TRAINING, f_name])
+
+        if(not os.path.exists(path)):
+            os.makedirs(path)
