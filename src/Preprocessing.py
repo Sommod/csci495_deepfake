@@ -31,15 +31,32 @@ def perform(force: bool = False) -> bool:
 
     # Ensure all folders for the data exist
     __ensureFolders()
+    __extractFiles(force)
 
-def __extractFiles(force: bool = False):
+def __extractFiles(force: bool = False) -> bool:
     for zips in os.listdir(Action.toPath(Constants.DIR_TRAINING, 'zip')):
         if(not os.path.exists(Action.toPath(Constants.DIR_TRAINING, 'extracted', zips)) or force):
-            os.remove(Action.toPath(Constants.DIR_TRAINING, 'extracted', zips))
-            zFile = zip.ZipFile(Action.toPath(Constants.DIR_TRAINING, 'zip', zips))
-            zFile.extractall(os.path.join)
+            if(os.path.exists(Action.toPath(Constants.DIR_TRAINING, 'extracted', zips))):
+                os.remove(Action.toPath(Constants.DIR_TRAINING, 'extracted'))
 
-def __ensureFolders(self):
+            print(f'Extracting files from {zips}...')
+            zFile = zip.ZipFile(Action.toPath(Constants.DIR_TRAINING, 'zip', zips))
+            zFile.extractall(Action.toPath(Constants.DIR_TRAINING, 'extracted'))
+            print(f'Complete')
+    return True
+
+def __greyScale(img, savePath: str = Action.toPath(Constants.DIR_TRAINING, 'grey')) -> None:
+    '''
+        Turns the given image into the grey-scale version. This is then saved to the `savePath`. By default,
+        the `savePath` is set to the `grey` folder, but can be set to an alternative location.
+
+        Args:
+            img (Image, required): The image to covert into grey-scale
+            savePath (Str, optional): The save path location for the greyed image
+    '''
+    pass
+
+def __ensureFolders():
     '''Ensures that the folders for model exist.'''
 
     fldr: list[str] = ['zip', 'extracted', 'grey']

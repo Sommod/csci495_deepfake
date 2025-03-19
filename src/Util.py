@@ -31,7 +31,7 @@ class Constants:
     DIR_CURRENT = os.path.dirname(os.path.realpath(__file__))
     '''Current Directory of the Program'''
 
-    DIR_TRAINING = os.path.join(DIR_CURRENT, "trainingDataDirectory")
+    DIR_TRAINING = os.path.join(DIR_CURRENT, "data")
     '''Top-Level Directory for the Training / Extracted files'''
 
     DIR_OUTPUT = os.path.join(DIR_CURRENT, "output")
@@ -87,10 +87,10 @@ class Action:
         '''
         return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    def toPath(**items) -> str:
+    def toPath(*items) -> str:
         ret: str = ''
 
-        for i in items.items():
+        for i in items:
             ret = os.path.join(ret, i)
 
         return ret
