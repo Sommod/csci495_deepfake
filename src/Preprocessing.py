@@ -34,7 +34,7 @@ def perform(force: bool = False) -> bool:
     # Convert extracted into greyscale images.
     __ensureFolders()
     __extractFiles(force)
-    __greyScale(Action.toPath(Constants.DIR_TRAINING, 'extracted'), [Constants.DIR_TRAINING, 'grey'])
+    __greyScale(Action.toPath(Constants.DIR_TRAINING, 'extracted'), [Constants.DIR_TRAINING, 'grey'], force)
 
 def __extractFiles(force: bool = False) -> bool:
     for zips in os.listdir(Action.toPath(Constants.DIR_TRAINING, 'zip')):
@@ -59,15 +59,20 @@ def __greyScale(path: str, deep: list[str] = [], force: bool = False) -> None:
             deep (list[str], optional): List that contains the lower folder paths
             force (bool, optional): Can force the re-doing of the greyscaling of an image, even if the file already exists.
     '''
+    
     for item in os.listdir(path):
-        if os.path.isdir(Action.toPath(path, item)):
-            __greyScale(Action.toPath(path, item), deep.append(item))
+        tmpPath = Action.toPath(path, item)
+        
+        if os.path.isdir(tmpPath):
+            deep.append(item)
+            __greyScale(tmpPath, deep, force)
+            deep.pop()
 
         elif item.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff')):
             if(os.path.exists(Action.toPath(deep, item)) and not force):
                 continue
 
-            imgPath = Action.toPath(path, item)
+            imgPath = tmpPath
 
             try:
                 img = Image.open(imgPath)
