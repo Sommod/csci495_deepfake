@@ -74,6 +74,8 @@ def __greyScale(path: str, deep: list[str] = [], force: bool = False) -> None:
 
             imgPath = tmpPath
 
+            #TODO: Need to add the ability to resize an image to 224x224. This can be done utilizing PIL
+
             try:
                 img = Image.open(imgPath)
                 savePath = Action.toPath(deep, item)
