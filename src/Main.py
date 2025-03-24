@@ -1,11 +1,14 @@
-# Some inputted text
+'''
+    Inports
+'''
 import os
-import time
+import datetime
+import Preprocessing
+from Util import Constants, Action
 
-# Constant Variables
-CONST_CUR_DIR = os.path.dirname(os.path.realpath(__file__))
-
-def main():
-    print('Hello')
-
-main()
+if(__name__ == "__main__"):
+    # Action.extract(True)
+    # pre = Preprocess()
+    # pre.perform()
+    Preprocessing.perform()
+    pass
