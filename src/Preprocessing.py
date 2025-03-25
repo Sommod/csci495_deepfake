@@ -30,8 +30,11 @@ def perform(force: bool = False) -> bool:
     '''
 
     # Ensure all folders for the data exist
+    # Extract all files from any Zip files
+    # Convert extracted into greyscale images.
     __ensureFolders()
     __extractFiles(force)
+    __greyScale(Action.toPath(Constants.DIR_TRAINING, 'extracted'), [Constants.DIR_TRAINING, 'grey'], force)
 
 def __extractFiles(force: bool = False) -> bool:
     for zips in os.listdir(Action.toPath(Constants.DIR_TRAINING, 'zip')):
@@ -45,18 +48,54 @@ def __extractFiles(force: bool = False) -> bool:
             print(f'Complete')
     return True
 
-def __greyScale(img, savePath: str = Action.toPath(Constants.DIR_TRAINING, 'grey')) -> None:
+def __greyScale(path: str, deep: list[str] = [], force: bool = False) -> None:
     '''
-        Turns the given image into the grey-scale version. This is then saved to the `savePath`. By default,
-        the `savePath` is set to the `grey` folder, but can be set to an alternative location.
+        This will convert all images found within the `extracted` folder into their greyscale version.
+        The method is recursive to handle inner (deep) folders. The naming of the folders and files will
+        remain the same when saving from the `extracted` to the `grey` directory.
 
         Args:
-            img (Image, required): The image to covert into grey-scale
-            savePath (Str, optional): The save path location for the greyed image
+            path (str, required): This is the path of the current directory
+            deep (list[str], optional): List that contains the lower folder paths
+            force (bool, optional): Can force the re-doing of the greyscaling of an image, even if the file already exists.
     '''
-    pass
+    
+    for item in os.listdir(path):
+        tmpPath = Action.toPath(path, item)
+        
+        if os.path.isdir(tmpPath):
+            deep.append(item)
+            __greyScale(tmpPath, deep, force)
+            deep.pop()
 
-def __ensureFolders():
+        elif item.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff')):
+            if(os.path.exists(Action.toPath(deep, item)) and not force):
+                continue
+
+            imgPath = tmpPath
+
+            #TODO: Need to add the ability to resize an image to 224x224. This can be done utilizing PIL
+
+            try:
+                img = Image.open(imgPath)
+                savePath = Action.toPath(deep, item)
+
+                #converts to greyscale using L rather than P L is black and white whereas P is color palate
+                grey = img.convert('L')
+
+                if(not os.path.exists(Action.toPath(deep))):
+                    os.makedirs(Action.toPath(deep))
+
+                grey.save(savePath)
+            
+                img.close()
+            except IOError as e:
+                print(f'Error, could not handle file {e.filename}. Exception: {e}')
+
+        else:
+            continue
+
+def __ensureFolders() -> None:
     '''Ensures that the folders for model exist.'''
 
     fldr: list[str] = ['zip', 'extracted', 'grey']
