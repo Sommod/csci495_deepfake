@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torchvision import models
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
+import Transformer as transform
 
 class Block(nn.Module):
     def __init__(self,dim,drop_path=0, layer_scale_init_value=0):
@@ -57,6 +58,8 @@ class ConvNext(nn.Module):
         for i in range(4):
             stage = nn.Sequential(
                 *[Block(dim=dims[i], drop_path=dp_rates[cur + j], 
+                layer_scale_init_value=layer_scale_init_value) for j in range(depths[i])],
+                *[transform.Swin(dim=dims[i], drop_path=dp_rates[cur + j], 
                 layer_scale_init_value=layer_scale_init_value) for j in range(depths[i])]
             )
             self.stages.append(stage)
@@ -71,7 +74,7 @@ class ConvNext(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv2d, nn.Linear)):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=.01)
             nn.init.constant_(m.bias, 0)
 
     def forward_features(self, x):
@@ -87,7 +90,6 @@ class ConvNext(nn.Module):
 
 
 class LayerNorm(nn.Module):
-   
     def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(normalized_shape))
