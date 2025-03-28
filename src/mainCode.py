@@ -1,14 +1,18 @@
-import numpy as np
+import os
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torchsummary import summary
+
 import EarlyStopping
 from EarlyStopping import EarlyStopping
 from codeFor490.Dataset import CustomImageDataset, train_transform, test_transform
+from codeFor490.GenContVit.Mae import MaskedAutoEncoderViT
 from codeFor490.GenContVit.genconvit import GenConViT
+from codeFor490.GenContVit.genconvit_vae import GenConViTVAE
+from codeFor490.GenContVit.trainingMae import trainingMae
 
 
 def main():
@@ -19,13 +23,26 @@ def main():
     validating = pd.read_csv(
         "valid.csv")
 
-    training = training.sample(frac=1, random_state=42)
-    validating = validating.sample(frac=1, random_state=42)
-    training = training[ : len(training)//10000]
-    validating = training[ : len(validating)//10000]
-
     # get training images path
     image_directory = r"real-vs-fake/"
+
+    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
+
+    #training the mae
+    mae_pretrained = False
+
+    if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
+        model_mae = MaskedAutoEncoderViT(256)
+        model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True))
+    else:
+        model_mae = trainingMae(training, validating, device, image_directory)
+
+    training = training.sample(frac=1, random_state=42)
+    validating = validating.sample(frac=1, random_state=42)
+    training = training[ : len(training)//1000]
+    validating = training[ : len(validating)//1000]
+
     num_class = len(training["label"])
 
     # create dataset
@@ -35,9 +52,7 @@ def main():
     val_loader = DataLoader(val_set, batch_size=4, shuffle=True, num_workers=4, pin_memory=True)
 
     # Send model to GPU
-    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
-    model = GenConViT(256, num_class).to(device)
+    model = GenConViT(256, num_class, model_mae).to(device)
     #model = nn.DataParallel(model)
 
     #training and validating
@@ -66,14 +81,15 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100):
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
-            outputs, reconstruction_loss = model(inputs)
+            outputs = model(inputs)
+            outputs, reconstruction_loss = outputs
             outputs = outputs.squeeze()
             loss = criterion(outputs, labels)
             total_loss = loss + reconstruction_loss
             total_loss.backward()
             optimizer.step()
 
-            running_loss += total_loss.item()
+            running_loss += loss.item()
             _, predicted = torch.max(outputs, 1)
             correct += (predicted == labels).sum().item()
             total += labels.size(0)
@@ -89,8 +105,9 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100):
             for inputs, labels in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
                 outputs, reconstruction_loss = model(inputs)
+                outputs = outputs.squeeze()
                 loss = criterion(outputs, labels)
-                total_loss = loss + reconstruction_loss
+                total_loss = loss +  reconstruction_loss
                 val_loss += total_loss.item()
 
                 _, predicted = torch.max(outputs, 1)
@@ -123,8 +140,9 @@ def test_model(model, test_loader, device):
         for inputs, labels in test_loader:
             inputs, labels = inputs.to(device), labels.to(device)
 
-            outputs, reconstruction_loss = model(inputs)
-            loss = criterion(outputs, labels)
+            outputs, reconstruction_loss = model(inputs, labels)
+            outputs = outputs.squeeze()
+            loss = criterion(outputs)
             total_loss = loss + reconstruction_loss
             test_loss += total_loss.item()
 
