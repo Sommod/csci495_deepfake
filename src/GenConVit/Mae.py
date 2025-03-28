@@ -32,6 +32,7 @@ class MaskedAutoEncoderViT(nn.Module):
         self.loss_fn = nn.MSELoss(reduction='none')
 
     def forward(self, x, binary_mask = None):
+
         # Mask the input during training
         if self.training:
             masked_images, mask = self.apply_patch_mask(x, binary_mask)
@@ -39,7 +40,7 @@ class MaskedAutoEncoderViT(nn.Module):
             masked_images = x
             mask = torch.ones_like(x)
 
-        x = F.interpolate(x, size=(224, 224), mode='bilinear', align_corners=False)
+        masked_images = F.interpolate(masked_images, size=(224, 224), mode='bilinear', align_corners=False)
 
         # Flatten the masked image into patches and pass through the encoder
         encoder_img = self.encoder(masked_images)  # Encoder processes the masked patches
