@@ -49,9 +49,9 @@ def train_validate_mae(model, device, train_loader, val_loader, epochs=100):
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            for inputs in val_loader:
-                inputs = inputs.to(device)
-                _, reconstruction_loss = model(inputs)
+            for inputs, mask in val_loader:
+                inputs, mask = inputs.to(device), mask.to(device)
+                _, reconstruction_loss = model(inputs, mask)
                 val_loss += reconstruction_loss.item()
 
         val_loss /= len(val_loader)
