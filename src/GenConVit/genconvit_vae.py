@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torchvision import transforms
 from timm import create_model
+import torch.nn.functional as F
 from codeFor490.GenContVit.model_embedder import HybridEmbed
 
 
@@ -58,7 +59,6 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, latent_dims=4):
         super(Decoder, self).__init__()
-
         self.features = nn.Sequential(
             nn.ConvTranspose2d(256, 64, kernel_size=2, stride=2),
             nn.LeakyReLU(),
@@ -84,7 +84,7 @@ class Decoder(nn.Module):
 class GenConViTVAE(nn.Module):
     def __init__(self, img_size, num_classes, pretrained=True):
         super(GenConViTVAE, self).__init__()
-        self.latent_dims = 16384#12544
+        self.latent_dims = 16384
         self.encoder = Encoder(self.latent_dims)
         self.decoder = Decoder(self.latent_dims)
         self.embedder = create_model('swinv2_tiny_window8_256', pretrained=pretrained)
@@ -103,7 +103,13 @@ class GenConViTVAE(nn.Module):
         x_hat = self.decoder(z)
         x1 = self.convnext_backbone(x)
         x2 = self.convnext_backbone(x_hat)
+
+        # Calculate the reconstruction loss (Mean Squared Error)
+        reconstruction_loss = F.mse_loss(self.resize(x_hat), x)  # MSE loss between input and reconstructed image
+        kl_divergence = self.encoder.kl
+        total_loss = reconstruction_loss + kl_divergence
+
         x = torch.cat((x1,x2), dim=1)
         x = self.fc2(self.relu(self.fc(self.relu(x))))
         
-        return x, self.resize(x_hat)
+        return x, total_loss
