@@ -17,24 +17,25 @@ def main():
     # read from csv
     training = pd.read_csv(
         "train.csv")
-
     validating = pd.read_csv(
         "valid.csv")
-
     # get training images path
     image_directory = r"real-vs-fake/"
 
+    # use the first one for gpu if it does not run out of memory
     #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device("cpu")
 
     #training the mae
-    mae_pretrained = False
-    if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
-        model_mae = MaskedAutoEncoderViT(256)
-        model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True))
-    else:
-        model_mae = trainingMae(training, validating, device, image_directory)
-        #model_mae = MaskedAutoEncoderViT(256)
+    model_type = "mae"
+
+    if model_type == "mae":
+        mae_pretrained = False
+        if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
+            model_mae = MaskedAutoEncoderViT(256)
+            model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True))
+        else:
+            model_mae = trainingMae(training, validating, device, image_directory)
 
     training = training.sample(frac=1, random_state=42)
     validating = validating.sample(frac=1, random_state=42)
