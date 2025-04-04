@@ -1,15 +1,19 @@
+from unittest.mock import patch
+
+import numpy as np
 import torch
 import torch.nn as nn
 import timm
+from matplotlib import pyplot as plt
 from timm import create_model
-from torch.nn.functional import mse_loss
 import torch.nn.functional as F
+from torchvision.transforms.functional import to_pil_image
 
 from codeFor490.GenContVit.model_embedder import HybridEmbed
 
 
 class MaskedAutoEncoderViT(nn.Module):
-    def __init__(self, img_size, patch_size=(16, 16), mask_ratio=0.25, pretrained=True):
+    def __init__(self, img_size, patch_size=(16, 16), mask_ratio=0.75, pretrained=True):
         super(MaskedAutoEncoderViT, self).__init__()
         self.img_size = img_size
         self.patch_size = patch_size
@@ -57,39 +61,78 @@ class MaskedAutoEncoderViT(nn.Module):
         return x, reconstruction_loss
 
     def apply_patch_mask(self, image, binary_mask):
-        """
-        Apply random patches to an image within the boundary defined by binary_mask.
-        """
         # Get image dimensions
-        batch_size, _, height, width = image.shape
+        batch_size, channels, height, width = image.shape
         patch_height, patch_width = self.patch_size
 
-        # Create a copy of the image to apply patches
-        output_image = image.clone()
-        patch_mask = torch.zeros_like(binary_mask, dtype=torch.float32)
+        # Calculate the grid size (height/patch_height and width/patch_width)
+        num_patches_h = height // patch_height
+        num_patches_w = width // patch_width
 
-        # Iterate through each image in the batch
+        # change to (batch_size, num_patch, channels, patch_height, patch_width)
+        patch_image = self.image_patching(image)
+
+        # Resizing the binary mask to match the grid size
+        binary_mask_resized = F.interpolate(binary_mask.unsqueeze(1).float(),
+                                            size=(num_patches_h, num_patches_w),
+                                            mode='nearest').squeeze(1)
+        binary_mask_resized = binary_mask_resized.view(batch_size, -1)
+
+        masked_positions = []
+
         for i in range(batch_size):
-            mask = binary_mask[i]
-            patch_positions = (mask == 1)
-            indices = torch.nonzero(patch_positions)
-            indices = indices[torch.randperm(indices.size(0))]
-            num_patches = int(self.mask_ratio * (indices.shape[0] // 500))
-            indices = indices[:num_patches]
+            available_indexes = torch.nonzero(binary_mask_resized[i] == 1, as_tuple=True)[0]
+            available_position = available_indexes.size(0)
+            num_patches = int(self.mask_ratio * available_position)
+            random_available_indices = torch.randperm(available_position)[:num_patches]
+            masked_positions.append(available_indexes[random_available_indices])  # Mask per image
 
-            for idx in indices:
-                y, x = idx[0], idx[1]
-                # Create a random patch from the image or use a fixed patch
-                output_image[i, :, y:y + patch_height, x:x + patch_width] = 0
+        mask = torch.ones_like(patch_image)
+        # mask the selected
+        for i in range(batch_size):
+            for pos in masked_positions[i]:
+                grid_idx = pos.item()
+                # Set the corresponding patch to zero in patch_image
+                patch_image[i, grid_idx] = 0
+                mask[i, grid_idx] = 0
 
-                patch_mask[i, y:y + patch_height, x:x + patch_width] = 0
-        return output_image, patch_mask
 
+        # Unpatch back to original image shape
+        reconstructed_image = self.image_unpatching(patch_image, (height, width))
+        reconstructed_mask = self.image_unpatching(mask, (height, width))
+
+        return reconstructed_image, reconstructed_mask
 
     def compute_reconstruction_loss(self, decimg, x, mask):
         if mask.dim() == 3:
             mask = mask.unsqueeze(1)
-        # Compute pixel-wise MSE loss for reconstruction
         recon_loss = self.loss_fn(decimg, x)
         recon_loss = (recon_loss * mask).sum() / mask.sum()  # Normalize by unmasked pixels
         return recon_loss
+
+    def image_patching(self, image):
+        batch_size, channels, height, width = image.shape
+        patch_height, patch_width = self.patch_size
+        # Unfold the image tensor (extract patches)
+        patches = image.unfold(2, patch_height, 16).unfold(3, patch_width, 16)
+        # Reshape the patches tensor to have shape (batch_size, num_patches, channels, patch_height, patch_width)
+        patches = patches.contiguous().view(batch_size, channels, -1, patch_height, patch_width)
+        patches = patches.permute(0, 2, 1, 3, 4)
+        return patches
+
+    def image_unpatching(self, patches, image_size):
+        # retrieve shapes
+        batch_size, num_patches, channels, patch_height, patch_width = patches.shape
+        height, width = image_size
+        patch_height, patch_width = self.patch_size
+
+        #
+        reconstructed_image = torch.zeros(batch_size, channels, height, width)
+
+        # Unfold the patches (assuming they are in the correct order)
+        index = 0
+        for i in range(0, height, patch_height):
+            for j in range(0, width, patch_width):
+                reconstructed_image[:, :, i:i + patch_height, j:j + patch_width] = patches[:, index, :, :, :]
+                index += 1
+        return reconstructed_image

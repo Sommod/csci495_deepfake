@@ -106,10 +106,10 @@ class GenConViTVAE(nn.Module):
 
         # Calculate the reconstruction loss (Mean Squared Error)
         reconstruction_loss = F.mse_loss(self.resize(x_hat), x)  # MSE loss between input and reconstructed image
-        kl_divergence = self.encoder.kl
-        total_loss = reconstruction_loss + kl_divergence
+        #kl_divergence = self.encoder.kl
+        #total_loss = reconstruction_loss + kl_divergence
 
         x = torch.cat((x1,x2), dim=1)
         x = self.fc2(self.relu(self.fc(self.relu(x))))
         
-        return x, total_loss
+        return x, reconstruction_loss

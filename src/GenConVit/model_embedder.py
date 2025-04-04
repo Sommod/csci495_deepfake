@@ -40,6 +40,5 @@ class HybridEmbed(nn.Module):
         x = self.backbone(x)
         if isinstance(x, (list, tuple)):
             x = x[-1]  # last feature if backbone outputs list/tuple of features
-
         x = self.proj(x).flatten(2).transpose(1, 2)
         return x
