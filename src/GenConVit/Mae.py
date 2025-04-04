@@ -1,6 +1,4 @@
-from unittest.mock import patch
 
-import numpy as np
 import torch
 import torch.nn as nn
 import timm
@@ -19,21 +17,21 @@ class MaskedAutoEncoderViT(nn.Module):
         self.patch_size = patch_size
         self.mask_ratio = mask_ratio
 
+        # Encoder that utilize the vision transformer
         self.encoder = timm.create_model('vit_base_patch16_224', pretrained=pretrained, num_classes=0)
 
         # Decoder that reconstructs the image
         self.decoder = nn.Sequential(
-            nn.Linear(self.encoder.num_features, 768),  # Latent dim to match encoder output size
+            nn.Linear(self.encoder.num_features, 768),
             nn.ReLU(),
-            nn.Linear(768, img_size * img_size * 3),  # Reconstruction to match image size
-            nn.Sigmoid()  # To ensure the output is within [0, 1]
+            nn.Linear(768, img_size * img_size * 3),
         )
 
         self.embedder = create_model('swinv2_tiny_window8_256', pretrained=pretrained)
         self.convnext_backbone = create_model('convnext_tiny', pretrained=pretrained, num_classes=1000, drop_path_rate=0, head_init_scale=1.0)
         self.convnext_backbone.patch_embed = HybridEmbed(self.embedder, img_size, embed_dim=768)
 
-        self.loss_fn = nn.MSELoss(reduction='none')
+        self.loss = nn.MSELoss(reduction='none')
 
     def forward(self, x, binary_mask = None):
 
@@ -44,18 +42,19 @@ class MaskedAutoEncoderViT(nn.Module):
             masked_images = x
             mask = torch.ones_like(x)
 
+        # resize to fit into transformer
         masked_images = F.interpolate(masked_images, size=(224, 224), mode='bilinear', align_corners=False)
 
-        # Flatten the masked image into patches and pass through the encoder
-        encoder_img = self.encoder(masked_images)  # Encoder processes the masked patches
-        # Decoder reconstructs the image
-        decoder_img = self.decoder(encoder_img)  # Reconstructed image
-        img = decoder_img.view(4, 3, 256, 256)
+        # autoencoders
+        encoder_img = self.encoder(masked_images)
+        decoder_img = self.decoder(encoder_img)
+
+        #reshape
+        img = decoder_img.view(4, 3, self.img_size, self.img_size)
         x1 = self.convnext_backbone(x)
         x2 = self.convnext_backbone(img)
 
         reconstruction_loss = self.compute_reconstruction_loss(img, x, mask)
-
         x = torch.cat((x1,x2), dim=1)
 
         return x, reconstruction_loss
@@ -106,11 +105,12 @@ class MaskedAutoEncoderViT(nn.Module):
     def compute_reconstruction_loss(self, decimg, x, mask):
         if mask.dim() == 3:
             mask = mask.unsqueeze(1)
-        recon_loss = self.loss_fn(decimg, x)
+        recon_loss = self.loss(decimg, x)
         recon_loss = (recon_loss * mask).sum() / mask.sum()  # Normalize by unmasked pixels
         return recon_loss
 
     def image_patching(self, image):
+        #shapes
         batch_size, channels, height, width = image.shape
         patch_height, patch_width = self.patch_size
         # Unfold the image tensor (extract patches)
@@ -125,8 +125,6 @@ class MaskedAutoEncoderViT(nn.Module):
         batch_size, num_patches, channels, patch_height, patch_width = patches.shape
         height, width = image_size
         patch_height, patch_width = self.patch_size
-
-        #
         reconstructed_image = torch.zeros(batch_size, channels, height, width)
 
         # Unfold the patches (assuming they are in the correct order)
