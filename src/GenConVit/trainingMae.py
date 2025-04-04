@@ -7,20 +7,24 @@ from codeFor490.Dataset import train_transform
 from codeFor490.Dataset import MaeDataset, test_transform
 from codeFor490.EarlyStopping import EarlyStopping
 from codeFor490.GenContVit.Mae import MaskedAutoEncoderViT
-
+from codeFor490.MaskingProcess import worker_init_fn
 
 def trainingMae(training, validating, device, directory):
+
     maeTraining = training[training["label"] == 1]
     maeValidating = validating[validating["label"] == 1]
+
+    # adjust this to change the amount of images to train through
     maeTraining = maeTraining[ : len(training)//1000]
     maeValidating = maeValidating[ : len(validating)//1000]
 
     model_mae = MaskedAutoEncoderViT(256)
 
+    # ensure num_workers = 0 unless you want warnings from mediapipe screaming at you
     train_set = MaeDataset(maeTraining, directory, transform=train_transform)
     val_set = MaeDataset(maeValidating, directory, transform=test_transform)
-    train_loader = DataLoader(train_set, batch_size=4, shuffle=True, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_set, batch_size=4, shuffle=True, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_set, batch_size=4, shuffle=True, num_workers=0, pin_memory=True, worker_init_fn=worker_init_fn)
+    val_loader = DataLoader(val_set, batch_size=4, shuffle=True, num_workers=0, pin_memory=True, worker_init_fn=worker_init_fn)
 
     train_validate_mae(model_mae, device, train_loader, val_loader)
     return model_mae
@@ -33,7 +37,6 @@ def train_validate_mae(model, device, train_loader, val_loader, epochs=100):
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
-        train_loss = 0.0
         # Training loop
         for inputs, mask in train_loader:
             inputs, mask = inputs.to(device), mask.to(device)

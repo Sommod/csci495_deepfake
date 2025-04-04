@@ -13,10 +13,12 @@ class GenConViTMae(nn.Module):
     def train(self, mode=True):
         # Keep mae in eval mode regardless of the mode of GenConViTMae
         super(GenConViTMae, self).train(mode)
-        self.mae.eval()  # Ensure mae stays in eval mode
+        self.mae.eval()
 
 
     def forward(self, x):
         x, _ = self.mae(x)
-        x = self.fc2(self.relu(self.fc(self.relu(x))))  # Final classification layer
+
+        # Final classification layer
+        x = self.fc2(self.relu(self.fc(self.relu(x))))
         return x
