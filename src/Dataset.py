@@ -1,4 +1,6 @@
 import os
+import threading
+
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -10,11 +12,13 @@ import mediapipe as mp
 
 class MediapipeSegmenter:
     _instance = None  # Singleton instance
+    _lock = threading.Lock()  # Lock to ensure thread-safety
 
     def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(MediapipeSegmenter, cls).__new__(cls)
-            cls._instance.segmenter = mp.solutions.selfie_segmentation.SelfieSegmentation(model_selection=1)
+        with cls._lock:  # Ensure only one thread can initialize the instance
+            if cls._instance is None:
+                cls._instance = super(MediapipeSegmenter, cls).__new__(cls)
+                cls._instance.segmenter = mp.solutions.selfie_segmentation.SelfieSegmentation(model_selection=1)
         return cls._instance
 
     def process(self, image):
@@ -28,23 +32,23 @@ class MediapipeSegmenter:
         # Extract the segmentation mask (background vs person)
         mask = result.segmentation_mask
         # Threshold the mask to create a binary mask for the person
-        _, binary_mask = cv2.threshold(mask, 0.5, 1, cv2.THRESH_BINARY)
+        _, binary_mask = cv2.threshold(mask, 0.25, 1, cv2.THRESH_BINARY)
         return binary_mask
 
 train_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Resize((256, 256)),
     transforms.RandomHorizontalFlip(p=0.5),
-    transforms.RandomVerticalFlip(p=0.5)
+    transforms.RandomVerticalFlip(p=0.5),
     # transforms.ColorJitter(brightness=0.05, contrast=0.05, saturation=0.05, hue=0.05),
-    # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     # GaussianNoise(std=.005)
 ])
 
 test_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Resize((256, 256)),
-    # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 

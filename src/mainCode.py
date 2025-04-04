@@ -3,15 +3,13 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
-from torchsummary import summary
 
-import EarlyStopping
 from EarlyStopping import EarlyStopping
 from codeFor490.Dataset import CustomImageDataset, train_transform, test_transform
 from codeFor490.GenContVit.Mae import MaskedAutoEncoderViT
 from codeFor490.GenContVit.genconvit import GenConViT
-from codeFor490.GenContVit.genconvit_vae import GenConViTVAE
 from codeFor490.GenContVit.trainingMae import trainingMae
 
 
@@ -31,19 +29,19 @@ def main():
 
     #training the mae
     mae_pretrained = False
-
     if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
         model_mae = MaskedAutoEncoderViT(256)
         model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True))
     else:
         model_mae = trainingMae(training, validating, device, image_directory)
+        #model_mae = MaskedAutoEncoderViT(256)
 
     training = training.sample(frac=1, random_state=42)
     validating = validating.sample(frac=1, random_state=42)
     training = training[ : len(training)//1000]
     validating = training[ : len(validating)//1000]
 
-    num_class = len(training["label"])
+    num_class = training["label"].nunique()
 
     # create dataset
     train_set = CustomImageDataset(training, image_directory, num_class, transform=train_transform)
@@ -72,6 +70,7 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100):
     early_stopping = EarlyStopping(patience=10, verbose=True)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0001)
+    scaler = GradScaler(device)
     model.to(device)
     for epoch in range(epochs):
         model.train()
@@ -86,8 +85,9 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100):
             outputs = outputs.squeeze()
             loss = criterion(outputs, labels)
             total_loss = loss + reconstruction_loss
-            total_loss.backward()
-            optimizer.step()
+            scaler.scale(total_loss).backward()  # Scales loss to avoid underflow
+            scaler.step(optimizer)  # Updates weights
+            scaler.update()
 
             running_loss += loss.item()
             _, predicted = torch.max(outputs, 1)
