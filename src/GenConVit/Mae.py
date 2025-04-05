@@ -4,6 +4,7 @@ import timm
 from timm import create_model
 import torch.nn.functional as F
 
+from codeFor490.GenContVit.SwinTransformer import Swin
 from codeFor490.GenContVit.model_embedder import HybridEmbed
 
 
@@ -24,11 +25,6 @@ class MaskedAutoEncoderViT(nn.Module):
             nn.Linear(768, img_size * img_size * 3),
         )
 
-        # the ConvNext and Swin backbone
-        self.embedder = create_model('swinv2_tiny_window8_256', pretrained=pretrained)
-        self.convnext_backbone = create_model('convnext_tiny', pretrained=pretrained, num_classes=1000, drop_path_rate=0, head_init_scale=1.0)
-        self.convnext_backbone.patch_embed = HybridEmbed(self.embedder, img_size, embed_dim=768)
-
         # loss function to calculate how different the reconstruction is from the original image
         self.loss = nn.MSELoss(reduction='none')
 
@@ -43,21 +39,14 @@ class MaskedAutoEncoderViT(nn.Module):
 
         # resize to fit into transformer
         masked_images = F.interpolate(masked_images, size=(224, 224), mode='bilinear', align_corners=False)
-
         # autoencoders
         encoder_img = self.encoder(masked_images)
         decoder_img = self.decoder(encoder_img)
-
         #reshape
         img = decoder_img.view(4, 3, self.img_size, self.img_size)
-        x1 = self.convnext_backbone(x)
-        x2 = self.convnext_backbone(img)
-
         #loss
         reconstruction_loss = self.compute_reconstruction_loss(img, x, mask)
-        x = torch.cat((x1,x2), dim=1)
-
-        return x, reconstruction_loss
+        return img, reconstruction_loss
 
     def apply_patch_mask(self, image, binary_mask):
         # Get image dimensions
