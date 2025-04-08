@@ -23,19 +23,16 @@ def main():
     image_directory = r"real-vs-fake/"
 
     # use the first one for gpu if it does not run out of memory
-    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cpu")
+    mae_pretrained = False
+    if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
+        model_mae = MaskedAutoEncoderViT(256)
+        model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True))
+    else:
+        model_mae = trainingMae(training, validating, device, image_directory)
 
-    #training the mae
-    model_type = "mae"
-
-    if model_type == "mae":
-        mae_pretrained = False
-        if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
-            model_mae = MaskedAutoEncoderViT(256)
-            model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True))
-        else:
-            model_mae = trainingMae(training, validating, device, image_directory)
+    return None
 
     training = training.sample(frac=1, random_state=42)
     validating = validating.sample(frac=1, random_state=42)
@@ -86,9 +83,8 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100):
             outputs = outputs.squeeze()
             loss = criterion(outputs, labels)
             total_loss = loss + reconstruction_loss
-            scaler.scale(total_loss).backward()  # Scales loss to avoid underflow
-            scaler.step(optimizer)  # Updates weights
-            scaler.update()
+            total_loss.backward()  # Scales loss to avoid underflow
+            optimizer.step()  # Updates weights
 
             running_loss += loss.item()
             _, predicted = torch.max(outputs, 1)
