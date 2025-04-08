@@ -3,7 +3,7 @@ import torch.nn as nn
 from torchvision import transforms
 from timm import create_model
 import torch.nn.functional as F
-from codeFor490.GenContVit.model_embedder import HybridEmbed
+from GenContVit.model_embedder import HybridEmbed
 
 
 class Encoder(nn.Module):
@@ -117,7 +117,7 @@ class GenConViTVAE(nn.Module):
         x2 = self.convnext_backbone(x_hat)
 
         #extracted feature +  loss
-        reconstruction_loss = self.loss(self.resize(x_hat), x)
+        reconstruction_loss = torch.mean(self.loss(self.resize(x_hat), x))
         x = torch.cat((x1,x2), dim=1)
 
         # classifier

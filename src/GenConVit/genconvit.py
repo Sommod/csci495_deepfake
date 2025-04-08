@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from codeFor490.GenContVit.GenConVitMae import GenConViTMae
-from codeFor490.GenContVit.genconvit_vae import GenConViTVAE
+from GenContVit.GenConVitMae import GenConViTMae
+from GenContVit.genconvit_vae import GenConViTVAE
 
 class GenConViT(nn.Module):
     def __init__(self, img_size, num_classes, mae):

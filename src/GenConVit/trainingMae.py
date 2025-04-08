@@ -3,11 +3,11 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 import mediapipe as mp
 
-from codeFor490.Dataset import train_transform
-from codeFor490.Dataset import MaeDataset, test_transform
-from codeFor490.EarlyStopping import EarlyStopping
-from codeFor490.GenContVit.Mae import MaskedAutoEncoderViT
-from codeFor490.MaskingProcess import worker_init_fn
+from Dataset import train_transform
+from Dataset import MaeDataset, test_transform
+from EarlyStopping import EarlyStopping
+from GenContVit.Mae import MaskedAutoEncoderViT
+from MaskingProcess import worker_init_fn
 
 def trainingMae(training, validating, device, directory):
 
@@ -15,16 +15,16 @@ def trainingMae(training, validating, device, directory):
     maeValidating = validating[validating["label"] == 1]
 
     # adjust this to change the amount of images to train through
-    maeTraining = maeTraining[ : len(training)//1000]
-    maeValidating = maeValidating[ : len(validating)//1000]
+    maeTraining = maeTraining
+    maeValidating = maeValidating
 
     model_mae = MaskedAutoEncoderViT(256)
 
     # ensure num_workers = 0 unless you want warnings from mediapipe screaming at you
     train_set = MaeDataset(maeTraining, directory, transform=train_transform)
     val_set = MaeDataset(maeValidating, directory, transform=test_transform)
-    train_loader = DataLoader(train_set, batch_size=4, shuffle=True, num_workers=0, pin_memory=True, worker_init_fn=worker_init_fn)
-    val_loader = DataLoader(val_set, batch_size=4, shuffle=True, num_workers=0, pin_memory=True, worker_init_fn=worker_init_fn)
+    train_loader = DataLoader(train_set, batch_size=16, shuffle=True, num_workers=4, pin_memory=True, worker_init_fn=worker_init_fn)
+    val_loader = DataLoader(val_set, batch_size=16, shuffle=True, num_workers=4, pin_memory=True, worker_init_fn=worker_init_fn)
 
     train_validate_mae(model_mae, device, train_loader, val_loader)
     return model_mae
