@@ -7,10 +7,10 @@ from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 
 from EarlyStopping import EarlyStopping
-from codeFor490.Dataset import CustomImageDataset, train_transform, test_transform
-from codeFor490.GenContVit.Mae import MaskedAutoEncoderViT
-from codeFor490.GenContVit.genconvit import GenConViT
-from codeFor490.GenContVit.trainingMae import trainingMae
+from Dataset import CustomImageDataset, train_transform, test_transform
+from GenContVit.Mae import MaskedAutoEncoderViT
+from GenContVit.genconvit import GenConViT
+from GenContVit.trainingMae import trainingMae
 
 
 def main():

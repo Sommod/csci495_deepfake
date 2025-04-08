@@ -4,8 +4,8 @@ from torch.utils.data import Dataset
 import pandas as pd
 import torch
 from torchvision.transforms import transforms
-from codeFor490.MaskingProcess import load_mask_processor
-from codeFor490.MaskingProcess import segmenter
+from MaskingProcess import load_mask_processor
+from MaskingProcess import segmenter
 
 train_transform = transforms.Compose([
     transforms.ToTensor(),
