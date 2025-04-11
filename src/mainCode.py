@@ -9,9 +9,9 @@ from torch.utils.data import DataLoader
 
 from EarlyStopping import EarlyStopping
 from Dataset import CustomImageDataset, train_transform, test_transform
-from GenContVit.Mae import MaskedAutoEncoderViT
-from GenContVit.genconvit import GenConViT
-from GenContVit.trainingMae import trainingMae
+from GenConVit.Mae import MaskedAutoEncoderViT
+from GenConVit.genconvit import GenConViT
+from GenConVit.trainingMae import trainingMae
 
 
 def main():
