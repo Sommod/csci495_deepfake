@@ -18,7 +18,7 @@ class MaskedAutoEncoderViT(nn.Module):
             nn.Linear(768, img_size * img_size * 3),
         )
 
-        self.loss = nn.MSELoss(reduction='none')
+        self.loss = nn.MSELoss()
 
     def forward(self, x, binary_mask=None):
         device = x.device  # Get the device from input tensor

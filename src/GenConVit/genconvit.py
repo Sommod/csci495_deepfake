@@ -9,7 +9,6 @@ class GenConViT(nn.Module):
         self.model_ed = GenConViTMae(num_classes, mae)
         self.model_vae = GenConViTVAE(img_size, num_classes)
     def forward(self, x):
-        x2, loss = self.model_vae(x)
+        x2, reconstruction_loss, kl_loss = self.model_vae(x)
         x1 = self.model_ed(x)
-        x = (x1+x2)/2
-        return x, loss
+        return x1, x2, reconstruction_loss, kl_loss
