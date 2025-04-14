@@ -9,7 +9,8 @@ class EarlyStopping:
                  verbose=False,
                  delta=0,
                  zip_file="checkpoint.zip",
-                 path='checkpoint.pth'):
+                 path='checkpoint.pth',
+                 save_all = False):
 
         self.patience = patience
         self.verbose = verbose
@@ -20,14 +21,21 @@ class EarlyStopping:
         self.best_loss = None
         self.early_stop = False
         self.best_model_wts = None
+        self.save_all = save_all
         self.buffer = io.BytesIO()
 
-    def __call__(self, val_loss, epoch, model, optimizer, scheduler):
+    def __call__(self, val_loss, epoch, model, optimizer=None, scheduler=None):
         if self.best_loss is None:
             self.best_loss = val_loss
-            self.save_checkpoint(val_loss, epoch, model, optimizer, scheduler)
+            if self.save_all:
+                self.save_checkpoint(val_loss, epoch, model, optimizer, scheduler)
+            else:
+                self.save_model(val_loss, epoch, model)
         elif val_loss < self.best_loss - self.delta:
-            self.save_checkpoint(val_loss, epoch, model, optimizer, scheduler)
+            if self.save_all:
+                self.save_checkpoint(val_loss, epoch, model, optimizer, scheduler)
+            else:
+                self.save_model(val_loss, epoch, model)
             self.best_loss = val_loss
             self.counter = 0
         else:
@@ -41,24 +49,30 @@ class EarlyStopping:
         if self.verbose:
             print(f"Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model ...")
 
-        #reduced_opt_state = self.reduce_optimizer_state(optimizer)
+        reduced_opt_state = self.reduce_optimizer_state(optimizer)
 
         checkpoint = {
-            'model_state': model.state_dict()
-        #    'optimizer_state': reduced_opt_state,
-        #    'scheduler_state': scheduler.state_dict(),  # Save scheduler state
-        #    'val_loss': val_loss,
-        #    'epoch': epoch
+            'model_state': model.state_dict(),
+            'optimizer_state': reduced_opt_state,
+            'scheduler_state': scheduler.state_dict(),  # Save scheduler state
+            'val_loss': val_loss,
+            'epoch': epoch
         }
 
-        #self.buffer = io.BytesIO()  # Reset buffer
-        #torch.save(checkpoint, self.buffer)
-        #self.buffer.seek(0)
+        self.buffer = io.BytesIO()  # Reset buffer
+        torch.save(checkpoint, self.buffer)
+        self.buffer.seek(0)
 
-        #with zipfile.ZipFile(self.zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        #    zipf.writestr(self.path, self.buffer.read())
-
+        with zipfile.ZipFile(self.zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipf.writestr(self.path, self.buffer.read())
         self.best_model_wts = checkpoint["model_state"]
+
+    def save_model(self, val_loss, epoch, model):
+        if self.verbose:
+            print(f"Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model ...")
+
+        self.best_model_wts = model.state_dict()
+        torch.save(self.best_model_wts, self.path)
 
     def load_best_model(self, model):
         model.load_state_dict(self.best_model_wts)

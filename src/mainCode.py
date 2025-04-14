@@ -9,9 +9,11 @@ from torch.utils.data import DataLoader
 
 from EarlyStopping import EarlyStopping
 from Dataset import CustomImageDataset, train_transform, test_transform
-from GenConVit.Mae import MaskedAutoEncoderViT
-from GenConVit.genconvit import GenConViT
-from GenConVit.trainingMae import trainingMae
+from GenContVit.Mae import MaskedAutoEncoderViT
+from GenContVit.genconvit import GenConViT
+from GenContVit.trainingMae import trainingMae
+from GenContVit.trainingVae import trainingVae
+from GenContVit.Vae import VariationalAutoEncoder
 
 
 def main():
@@ -34,6 +36,14 @@ def main():
         model_mae = trainingMae(training, validating, device, image_directory)
     print("Mae loaded")
 
+    mae_pretrained = False
+    if os.path.exists('VaeCheckPoint.pth') and mae_pretrained:
+        model_vae = VariationalAutoEncoder
+        model_vae.load_state_dict(torch.load('VaeCheckPoint.pth', weights_only=True, map_location=device))
+    else:
+        model_vae = trainingVae(training, validating, device, image_directory)
+    print("Vae loaded")
+
     training = training.sample(frac=1, random_state=42)
     validating = validating.sample(frac=1, random_state=42)
     training = training[ : len(training)//100]
@@ -49,7 +59,7 @@ def main():
     val_loader = DataLoader(val_set, batch_size=32, shuffle=True, num_workers=6, pin_memory=True)
 
     # Send model to GPU
-    model = GenConViT(256, num_class, model_mae).to(device)
+    model = GenConViT(256, num_class, model_mae, model_vae).to(device)
 
     if torch.cuda.device_count() > 1:
         print(f"Using {torch.cuda.device_count()} GPUs!")
@@ -66,7 +76,7 @@ def main():
     print(test_model(model, test_loader, device))
 
 # Function for training and validation
-def train_validate_model(model, device, train_loader, val_loader, epochs=100, checkpoint_path=None):
+def train_validate_model(model, device, train_loader, val_loader, epochs=100, checkpoint_path=None, ignore_load = True):
     if checkpoint_path is not None:
         early_stopping = EarlyStopping(patience=6, verbose=True, zip_file=checkpoint_path)
     else:
@@ -79,45 +89,34 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
 
 
     # Resume from checkpoint if provided
-    if checkpoint_path and os.path.exists(checkpoint_path) and os.path.isfile(checkpoint_path):
-        model, optimizer, scheduler, start_epoch = early_stopping.load_checkpoint(model, optimizer, scheduler, device)
-
-    warmup_epochs = 30
+    if not ignore_load:
+        if checkpoint_path and os.path.exists(checkpoint_path) and os.path.isfile(checkpoint_path):
+            model, optimizer, scheduler, start_epoch = early_stopping.load_checkpoint(model, optimizer, scheduler, device)
 
     for epoch in range(start_epoch, epochs):
         model.train()
         running_loss = 0.0
         running_vae_loss = 0.0
         running_mae_loss = 0.0
-        running_reconstruction_loss = 0.0
-        running_kl_loss = 0.0
         correct, total = 0, 0
 
         all_preds, all_labels = [], []
-
-        kl_weight = min(1.0, (epoch + 1) / warmup_epochs)
 
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
 
             optimizer.zero_grad()
-            mae, vae, reconstruction_loss, kl_loss = model(inputs)
-            reconstruction_loss *= 5
-
-            kl_loss *= kl_weight
+            mae, vae = model(inputs)
 
             output = (mae + vae)/2
             vae_loss = criterion(vae, labels)
             mae_loss = criterion(mae, labels)
             loss = (vae_loss + mae_loss)/2
-            total_loss_for_batch = loss + reconstruction_loss + kl_loss
 
             # Accumulate the losses
-            running_loss += total_loss_for_batch.item()
+            running_loss += loss.item()
             running_vae_loss += vae_loss.item()
             running_mae_loss += mae_loss.item()
-            running_reconstruction_loss += reconstruction_loss.item()
-            running_kl_loss += kl_loss.item()
 
             _, predicted = torch.max(output, 1)
             correct += (predicted == labels).sum().item()
@@ -127,10 +126,9 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
             all_labels.extend(labels.detach().cpu().numpy())
 
             print(f"Train Loss: {running_loss:.4f} | Train VAE Loss: {running_vae_loss:.4f} | "
-                  f"Train MAE Loss: {running_mae_loss:.4f} | Train Reconstruction Loss: {running_reconstruction_loss:.4f} | "
-                  f"Train KL Loss: {running_kl_loss:.4f}")
+                  f"Train MAE Loss: {running_mae_loss:.4f}")
 
-            total_loss_for_batch.backward()  # Backpropagate only during training
+            loss.backward()  # Backpropagate only during training
             optimizer.step()
 
         train_loss = running_loss / total
@@ -138,8 +136,6 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
 
         running_vae_loss /= total
         running_mae_loss /= total
-        running_reconstruction_loss /= total
-        running_kl_loss /= total
 
         precision = precision_score(all_labels, all_preds, average='binary', zero_division=0)
         recall = recall_score(all_labels, all_preds, average='binary', zero_division=0)
@@ -149,32 +145,24 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
         val_loss = 0.0
         val_vae_loss = 0.0
         val_mae_loss = 0.0
-        val_reconstruction_loss = 0.0
-        val_kl_loss = 0.0
         correct, total = 0, 0
 
         all_val_preds, all_val_labels = [], []
 
-
         with torch.no_grad():
             for inputs, labels in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
-                mae, vae, reconstruction_loss, kl_loss = model(inputs)
-                reconstruction_loss *= 5
-                kl_loss *= kl_weight
-
+                mae, vae = model(inputs)
                 output = (mae + vae) / 2
                 vae_loss = criterion(vae, labels)
                 mae_loss = criterion(mae, labels)
                 loss = (vae_loss + mae_loss)/2
-                total_loss_for_batch = loss + reconstruction_loss + kl_loss
-                val_loss += total_loss_for_batch.item()
 
+
+                val_loss += loss.item()
                 # Accumulate the validation losses
                 val_vae_loss += vae_loss.item()
                 val_mae_loss += mae_loss.item()
-                val_reconstruction_loss += reconstruction_loss.item()
-                val_kl_loss += kl_loss.item()
 
                 all_val_preds.extend(predicted.detach().cpu().numpy())
                 all_val_labels.extend(labels.detach().cpu().numpy())
@@ -188,9 +176,6 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
 
         val_vae_loss /= total
         val_mae_loss /= total
-        val_reconstruction_loss /= total
-        val_kl_loss /= total
-
 
         val_precision = precision_score(all_val_labels, all_val_preds, average='binary', zero_division=0)
         val_recall = recall_score(all_val_labels, all_val_preds, average='binary', zero_division=0)
@@ -200,16 +185,11 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
         # Print average losses for train and validation
         print(f"Epoch {epoch + 1}/{epochs} | ")
         print(f"Train Loss: {train_loss:.4f} | Train VAE Loss: {running_vae_loss:.4f} | "
-              f"Train MAE Loss: {running_mae_loss:.4f} | Train Reconstruction Loss: {running_reconstruction_loss:.4f} | "
-              f"Train KL Loss: {running_kl_loss:.4f} | Train Acc: {train_acc:.2f}% | ")
+              f"Train MAE Loss: {running_mae_loss:.4f} | Train Acc: {train_acc:.2f}% | ")
         print(f"Val Loss: {val_loss:.4f} | Val VAE Loss: {val_vae_loss:.4f} | "
-              f"Val MAE Loss: {val_mae_loss:.4f} | Val Reconstruction Loss: {val_reconstruction_loss:.4f} | "
-              f"Val KL Loss: {val_kl_loss:.4f} | Val Acc: {val_acc:.2f}%")
-
+              f"Val MAE Loss: {val_mae_loss:.4f} | Val Acc: {val_acc:.2f}%")
         print(f"Precision: {precision:.4f} | Recall: {recall:.4f} | F1 Score: {f1:.4f} | ")
         print(f"Val Precision: {val_precision:.4f} | Val Recall: {val_recall:.4f} | Val F1 Score: {val_f1:.4f} | Val AUC: {val_auc:.4f}")
-
-
 
         scheduler.step(val_loss)
 
@@ -230,8 +210,6 @@ def test_model(model, test_loader, device):
     total_loss = 0.0
     total_vae_loss = 0.0
     total_mae_loss = 0.0
-    total_reconstruction_loss = 0.0
-    total_kl_loss = 0.0
     correct = 0
     total = 0
     all_preds, all_labels = [], []
@@ -245,14 +223,11 @@ def test_model(model, test_loader, device):
             vae_loss = criterion(vae, labels)
             mae_loss = criterion(mae, labels)
             loss = (vae_loss + mae_loss)/2
-            total_loss_for_batch = loss + reconstruction_loss + kl_loss
 
             # Accumulate losses
-            total_loss += total_loss_for_batch.item()
+            total_loss += loss.item()
             total_vae_loss += vae_loss.item()
             total_mae_loss += mae_loss.item()
-            total_reconstruction_loss += reconstruction_loss.item()
-            total_kl_loss += kl_loss.item()
 
             # Compute accuracy
             _, predicted = torch.max(output, 1)
@@ -266,14 +241,10 @@ def test_model(model, test_loader, device):
     avg_loss = total_loss / total
     avg_vae_loss = total_vae_loss / total
     avg_mae_loss = total_mae_loss / total
-    avg_reconstruction_loss = total_reconstruction_loss / total
-    avg_kl_loss = total_kl_loss / total
     accuracy = 100 * correct / total
 
     print(f"Average VAE Loss: {avg_vae_loss:.4f}")
     print(f"Average MAE Loss: {avg_mae_loss:.4f}")
-    print(f"Average Reconstruction Loss: {avg_reconstruction_loss:.4f}")
-    print(f"Average KL Loss: {avg_kl_loss:.4f}")
     print(f"Test Loss: {avg_loss:.4f}")
     print(f"Test Accuracy: {accuracy:.2f}%")
 
