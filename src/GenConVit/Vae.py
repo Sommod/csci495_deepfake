@@ -56,7 +56,7 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dims=4, output_channels=3, feature_map_size=8):
+    def __init__(self, latent_dims=4, output_channels=3, feature_map_size=16):
         super(Decoder, self).__init__()
 
         self.latent_dims = latent_dims
@@ -77,11 +77,8 @@ class Decoder(nn.Module):
             nn.ConvTranspose2d(16, 8, kernel_size=2, stride=2),
             nn.LeakyReLU(),
 
-            nn.ConvTranspose2d(8, 4, kernel_size=2, stride=2),
+            nn.ConvTranspose2d(8, 3, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-
-            nn.ConvTranspose2d(4, 3, kernel_size=2, stride=2),
-            nn.LeakyReLU() # or Sigmoid depending on your data range
         )
 
     def forward(self, x):
@@ -96,7 +93,7 @@ class Decoder(nn.Module):
         return x
 
 class VariationalAutoEncoder(nn.Module):
-    def __init__(self, latent_dims = 4096):
+    def __init__(self, latent_dims = 256):
         super(VariationalAutoEncoder, self).__init__()
         self.latent_dims = latent_dims
 

@@ -2,6 +2,7 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 import mediapipe as mp
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from Dataset import CustomImageDataset, test_transform, train_transform
 from EarlyStopping import EarlyStopping
@@ -13,16 +14,16 @@ def trainingVae(training, validating, device, directory):
     model_vae = VariationalAutoEncoder()
 
     # remove this when doing full testing
-    training = training[:len(training)]
-    validating = validating[:len(validating)]
+    training = training[:len(training)//1]
+    validating = validating[:len(validating)//1]
     print(len(training))
     print(len(validating))
 
     # ensure num_workers = 0 unless you want warnings from mediapipe screaming at you
     train_set = CustomImageDataset(training, directory, 2, transform=train_transform)
     val_set = CustomImageDataset(validating, directory, 2, transform=test_transform)
-    train_loader = DataLoader(train_set, batch_size=64, shuffle=True, num_workers=1, pin_memory=True)
-    val_loader = DataLoader(val_set, batch_size=64, shuffle=True, num_workers=1, pin_memory=True)
+    train_loader = DataLoader(train_set, batch_size=128, shuffle=True, num_workers=1, pin_memory=True)
+    val_loader = DataLoader(val_set, batch_size=128, shuffle=True, num_workers=1, pin_memory=True)
 
     train_validate_vae(model_vae, device, train_loader, val_loader)
     return model_vae
@@ -30,10 +31,11 @@ def trainingVae(training, validating, device, directory):
 # Function for training and validation
 def train_validate_vae(model, device, train_loader, val_loader, epochs=100):
     early_stopping = EarlyStopping(patience=10, verbose=True, path ='VaeCheckPoint.pth', save_all = False)
-    optimizer = optim.Adam(model.parameters(), lr=0.0005, weight_decay=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=0.000125)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
     model.to(device)
 
-    warmup_epochs = 30
+    warmup_epochs = 50
 
     for epoch in range(epochs):
         model.train()
@@ -59,9 +61,6 @@ def train_validate_vae(model, device, train_loader, val_loader, epochs=100):
             running_loss += total_loss.item()
             running_reconstruction_loss += reconstruction_loss.item()
             running_kl_loss += kl_loss.item()
-
-            print(f"Train Loss: {running_loss:.4f} | Train Reconstruction Loss: {running_reconstruction_loss:.4f} | "
-                f"Train KL Loss: {running_kl_loss:.4f}")
 
         train_loss = running_loss / total
         running_reconstruction_loss /= total
@@ -96,6 +95,8 @@ def train_validate_vae(model, device, train_loader, val_loader, epochs=100):
               f"Train KL Loss: {running_kl_loss:.4f}")
         print(f"Val Loss: {val_loss:.4f} | Val Reconstruction Loss: {val_reconstruction_loss:.4f} | "
               f"Val KL Loss: {val_kl_loss:.4f}")
+
+        scheduler.step(val_loss)
 
         early_stopping(val_loss, epoch, model)
         if early_stopping.early_stop:
