@@ -14,8 +14,8 @@ def trainingVae(training, validating, device, directory):
     model_vae = VariationalAutoEncoder()
 
     # remove this when doing full testing
-    training = training[:len(training)//1]
-    validating = validating[:len(validating)//1]
+    training = training[:len(training)//50]
+    validating = validating[:len(validating)//50]
     print(len(training))
     print(len(validating))
 
@@ -29,10 +29,10 @@ def trainingVae(training, validating, device, directory):
     return model_vae
 
 # Function for training and validation
-def train_validate_vae(model, device, train_loader, val_loader, epochs=100):
-    early_stopping = EarlyStopping(patience=10, verbose=True, path ='VaeCheckPoint.pth', save_all = False)
-    optimizer = optim.Adam(model.parameters(), lr=0.000125)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
+def train_validate_vae(model, device, train_loader, val_loader, epochs=1000):
+    early_stopping = EarlyStopping(patience=20, verbose=True, path ='VaeCheckPoint.pth', save_all = False)
+    optimizer = optim.Adam(model.parameters(), lr=0.00075, weight_decay = .0001)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
     model.to(device)
 
     warmup_epochs = 50
@@ -44,7 +44,7 @@ def train_validate_vae(model, device, train_loader, val_loader, epochs=100):
         running_kl_loss = 0.0
         total = 0
 
-        kl_weight = min(1.0, (epoch + 1) / warmup_epochs)
+        kl_weight = min(1.0, ((epoch + 1)/ warmup_epochs)**0.5) * 0.25
 
         # Training loop
         for inputs, _ in train_loader:
