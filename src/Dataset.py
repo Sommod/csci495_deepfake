@@ -6,18 +6,32 @@ import torch
 from torchvision.transforms import transforms
 from MaskingProcess import load_mask_processor
 from MaskingProcess import segmenter
+from PIL import Image
 
 train_transform = transforms.Compose([
-    transforms.ToTensor(),
+    # Resize the image to 256x256
     transforms.Resize((256, 256)),
+    
+    # Random horizontal flip with 50% probability
     transforms.RandomHorizontalFlip(p=0.5),
+    
+    # Random vertical flip with 50% probability
     transforms.RandomVerticalFlip(p=0.5),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    
+    # Adjust brightness, contrast, saturation, and hue
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+    
+    # Apply Gaussian Blur
+    transforms.GaussianBlur(3),
+    
+    transforms.ToTensor(),
+    # Normalize the image (mean and std values for pre-trained models)
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 test_transform = transforms.Compose([
-    transforms.ToTensor(),
     transforms.Resize((256, 256)),
+    transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
@@ -36,10 +50,12 @@ class CustomImageDataset(Dataset):
         row = self.csv.iloc[idx]
         img_name = row['path']
         img_path = os.path.join(self.img_dir, img_name)
-        image = cv2.imread(img_path, cv2.IMREAD_COLOR_RGB)
+        image = cv2.imread(img_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         # Apply transformations
         if self.transform:
+            image = Image.fromarray(image)
             image = self.transform(image)
 
         class_label = row["label"]

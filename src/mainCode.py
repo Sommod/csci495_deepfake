@@ -82,7 +82,7 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
     else:
         early_stopping = EarlyStopping(patience=6, verbose=True)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.00001, weight_decay=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0001)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
     model.to(device)
     start_epoch = 0
