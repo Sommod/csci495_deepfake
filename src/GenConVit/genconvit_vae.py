@@ -4,97 +4,14 @@ from torchvision import transforms
 from timm import create_model
 import torch.nn.functional as F
 from GenContVit.model_embedder import HybridEmbed
+from GenContVit.Vae import VariationalAutoEncoder
 
-
-class Encoder(nn.Module):
-    def __init__(self, latent_dims=4):
-        super(Encoder, self).__init__()
-
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 8, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(num_features=8),
-            nn.LeakyReLU(),
-
-            nn.Conv2d(8, 16, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(num_features=16),
-            nn.LeakyReLU(),
-
-            nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(num_features=32),
-            nn.LeakyReLU(),
-
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(num_features=64),
-            nn.LeakyReLU(),
-
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(num_features=128),
-            nn.LeakyReLU(),
-        )
-
-        self.latent_dims = latent_dims
-
-        self.mu = nn.Linear(128 * 8 * 8, self.latent_dims)
-        self.var = nn.Linear(128 * 8 * 8, self.latent_dims)
-
-        #kl loss
-        self.kl = 0
-
-    def reparameterize(self, x):
-        std = torch.exp(0.5 * self.mu(x))
-        eps = torch.randn_like(std)
-        z = eps * std + self.mu(x)
-        return z, std
-
-    def forward(self, x):
-        x = self.features(x)
-        x = torch.flatten(x, start_dim=1)
-
-
-        mu = self.mu(x)
-        var = self.var(x)
-        z, _ = self.reparameterize(x)
-
-        self.kl = torch.mean(-0.5 * torch.sum(1 + var - mu ** 2 - var.exp(), dim=1), dim=0)
-
-        return z, self.kl
-
-class Decoder(nn.Module):
-    def __init__(self, latent_dims=4):
-        super(Decoder, self).__init__()
-        self.features = nn.Sequential(
-            nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2),
-            nn.LeakyReLU(),
-
-            nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2),
-            nn.LeakyReLU(),
-
-            nn.ConvTranspose2d(16, 8, kernel_size=2, stride=2),
-            nn.LeakyReLU(),
-
-            nn.ConvTranspose2d(8, 4, kernel_size=2, stride=2),
-            nn.LeakyReLU(),
-
-            nn.ConvTranspose2d(4, 3, kernel_size=2, stride=2),
-            nn.LeakyReLU()
-        )
-
-        self.latent_dims = latent_dims
-        self.unflatten = nn.Unflatten(dim=1, unflattened_size=(64, 8, 8))
-
-    def forward(self, x):
-        x = self.unflatten(x)
-        x = self.features(x)
-        return x
 
 class GenConViTVAE(nn.Module):
-    def __init__(self, img_size, num_classes, pretrained=True):
+    def __init__(self, img_size, num_classes, vae, pretrained=True):
         super(GenConViTVAE, self).__init__()
-        self.latent_dims = 4096
 
-        # autoencoder
-        self.encoder = Encoder(self.latent_dims)
-        self.decoder = Decoder(self.latent_dims)
+        self.vae = vae
 
         # backbones
         self.embedder = create_model('swinv2_tiny_window8_256', pretrained=pretrained)
@@ -108,25 +25,24 @@ class GenConViTVAE(nn.Module):
         self.fc2 = nn.Linear(self.num_feature//4, num_classes)
         self.relu = nn.ReLU()
 
-        # loss function to calculate how different the reconstruction is from the original image
-        self.loss = nn.MSELoss()
+    def train(self, mode=True):
+        # Keep mae in eval mode regardless of the mode of GenConViTMae
+        super(GenConViTVAE, self).train(mode)
+        self.vae.eval()
+
 
     def forward(self, x):
 
         #autoencoder
-        z, kl_loss = self.encoder(x)
-        x_hat = self.decoder(z)
+        x_hat, _, _ = self.vae(x)
 
         #backbone
         x1 = self.convnext_backbone(x)
         x2 = self.convnext_backbone(x_hat)
-
-        #extracted feature +  loss
-        reconstruction_loss = self.loss(x_hat, x)
 
         x = torch.cat((x1,x2), dim=1)
 
         # classifier
         x = self.fc2(self.relu(self.fc(self.relu(x))))
         
-        return x, reconstruction_loss, kl_loss
+        return x

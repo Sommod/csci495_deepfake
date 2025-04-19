@@ -13,30 +13,32 @@ def trainingMae(training, validating, device, directory):
 
     maeTraining = training[training["label"] == 1]
     maeValidating = validating[validating["label"] == 1]
-
-    # adjust this to change the amount of images to train through
-    maeTraining = maeTraining
-    maeValidating = maeValidating
+    
+    # remove this during when doing full testing
+    maeTraining = maeTraining[:len(maeTraining)//1000]
+    maeValidating = maeValidating[:len(maeValidating)//1000]
 
     model_mae = MaskedAutoEncoderViT(256)
 
     # ensure num_workers = 0 unless you want warnings from mediapipe screaming at you
     train_set = MaeDataset(maeTraining, directory, transform=train_transform)
     val_set = MaeDataset(maeValidating, directory, transform=test_transform)
-    train_loader = DataLoader(train_set, batch_size=16, shuffle=True, num_workers=4, pin_memory=True, worker_init_fn=worker_init_fn)
-    val_loader = DataLoader(val_set, batch_size=16, shuffle=True, num_workers=4, pin_memory=True, worker_init_fn=worker_init_fn)
+    train_loader = DataLoader(train_set, batch_size=64, shuffle=True, num_workers=1, pin_memory=True, worker_init_fn=worker_init_fn)
+    val_loader = DataLoader(val_set, batch_size=64, shuffle=True, num_workers=1, pin_memory=True, worker_init_fn=worker_init_fn)
 
     train_validate_mae(model_mae, device, train_loader, val_loader)
     return model_mae
 
 # Function for training and validation
 def train_validate_mae(model, device, train_loader, val_loader, epochs=100):
-    early_stopping = EarlyStopping(patience=5, verbose=True, path ='MaeCheckPoint.pth')
+    early_stopping = EarlyStopping(patience=5, verbose=True, path ='MaeCheckPoint.pth', save_all = False)
     optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0001)
     model.to(device)
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
+        total = 0
+
         # Training loop
         for inputs, mask in train_loader:
             inputs, mask = inputs.to(device), mask.to(device)
@@ -45,24 +47,28 @@ def train_validate_mae(model, device, train_loader, val_loader, epochs=100):
             reconstruction_loss.backward()
             optimizer.step()
             running_loss += reconstruction_loss.item()
+            total += inputs.size(0)
 
-        train_loss = running_loss / len(train_loader)
+        train_loss = running_loss / total
 
         # Validation loop
         model.eval()
         val_loss = 0.0
+        total = 0
+
         with torch.no_grad():
             for inputs, mask in val_loader:
                 inputs, mask = inputs.to(device), mask.to(device)
                 _, reconstruction_loss = model(inputs, mask)
                 val_loss += reconstruction_loss.item()
+                total += inputs.size(0)
 
-        val_loss /= len(val_loader)
+        val_loss /= total
 
         print(
             f"Epoch {epoch + 1}/{epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
-        early_stopping(val_loss, model)
+        early_stopping(val_loss, epoch, model)
         if early_stopping.early_stop:
             early_stopping.load_best_model(model)
             print("Early stopping triggered.")
