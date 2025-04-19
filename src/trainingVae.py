@@ -31,7 +31,7 @@ def train_vae(training, validating, device, directory):
     return model_vae
 
 def train_val_vae(model, device, train_loader, val_loader, epochs = 10):
-    early_stopping = EarlyStopping(patience=5, verbose=True, path ='MaeCheckPoint.pth')
+    early_stopping = EarlyStopping(patience=5, verbose=True, path ='VaeCheckPoint.pth')
     optimizer = optim.Adam(model.parameters(), lr = 0.0001, weight_decay = 0.0001)
     model.to(device)
 
