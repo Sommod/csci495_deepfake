@@ -75,19 +75,19 @@ class Decoder(nn.Module):
         self.features = nn.Sequential(
             nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-
+            #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-	        nn.Dropout2d(0.1),
+	        #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-	        nn.Dropout2d(0.1),
+	        #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-	        nn.Dropout2d(0.1),
+	        #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(16, 8, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-            nn.Dropout2d(0.1),
+            #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(8, 3, kernel_size=2, stride=2),
             nn.LeakyReLU()
 
@@ -105,7 +105,7 @@ class Decoder(nn.Module):
         return x
 
 class VariationalAutoEncoder(nn.Module):
-    def __init__(self, latent_dims = 512):
+    def __init__(self, latent_dims = 1024):
         super(VariationalAutoEncoder, self).__init__()
         self.latent_dims = latent_dims
 
