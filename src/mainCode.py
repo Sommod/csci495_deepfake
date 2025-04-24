@@ -18,45 +18,48 @@ from GenContVit.Vae import VariationalAutoEncoder
 
 def main():
     # read from csv
-    training = pd.read_csv(
+    trainings = pd.read_csv(
         "train.csv")
-    validating = pd.read_csv(
+    validatings = pd.read_csv(
         "valid.csv")
     # get training images path
     image_directory = r"real-vs-fake/"
 
+
+    trainings = trainings.sample(frac=1, random_state=42)
+    validatings = validatings.sample(frac=1, random_state=42)
+    training = trainings[:len(trainings)//10]
+    validating = validatings[:len(validatings)//10]
+    num_class = trainings["label"].nunique()
+    print(len(training))
+    print(len(validating))
+
+
     # use the first one for gpu if it does not run out of memory
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #device = torch.device("cpu")
-    mae_pretrained = True
-    if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
-        model_mae = MaskedAutoEncoderViT(256)
-        model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True, map_location=device))
-    else:
-        model_mae = trainingMae(training, validating, device, image_directory)
-    print("Mae loaded")
 
-    mae_pretrained = False
+    mae_pretrained = True
     if os.path.exists('VaeCheckPoint.pth') and mae_pretrained:
-        model_vae = VariationalAutoEncoder
+        model_vae = VariationalAutoEncoder()
         model_vae.load_state_dict(torch.load('VaeCheckPoint.pth', weights_only=True, map_location=device))
     else:
         model_vae = trainingVae(training, validating, device, image_directory)
     print("Vae loaded")
 
-    training = training.sample(frac=1, random_state=42)
-    validating = validating.sample(frac=1, random_state=42)
-    training = training[ : len(training)//100]
-    validating = validating[ : len(validating)//100]
-    print(len(training))
-    print(len(validating))
-    num_class = training["label"].nunique()
+    mae_pretrained = True
+    if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
+        model_mae = MaskedAutoEncoderViT(256)
+        model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True, map_location=device))
+    else:
+        model_mae = trainingMae(trainings, validatings, device, image_directory)
+    print("Mae loaded")
+
 
     # create dataset
     train_set = CustomImageDataset(training, image_directory, num_class, transform=train_transform)
     val_set = CustomImageDataset(validating, image_directory, num_class, transform=test_transform)
-    train_loader = DataLoader(train_set, batch_size=32, shuffle=True, num_workers=6, pin_memory=True)
-    val_loader = DataLoader(val_set, batch_size=32, shuffle=True, num_workers=6, pin_memory=True)
+    train_loader = DataLoader(train_set, batch_size=16, shuffle=True, num_workers=1, pin_memory=True)
+    val_loader = DataLoader(val_set, batch_size=16, shuffle=True, num_workers=1, pin_memory=True)
 
     # Send model to GPU
     model = GenConViT(256, num_class, model_mae, model_vae).to(device)
@@ -65,33 +68,48 @@ def main():
         print(f"Using {torch.cuda.device_count()} GPUs!")
         model = nn.DataParallel(model)
 
+    del model_vae.decoder  # Delete the decoder from memory
+    del model_mae.decoder
+    torch.cuda.empty_cache()
+
     #training and validating
-    train_validate_model(model, device, train_loader, val_loader, epochs=100, checkpoint_path="checkpoint.zip")
+    train_validate_model(model, device, train_loader, val_loader, epochs=1000, checkpoint_path=None)#"checkpoint.zip")
 
     # testing
     testing = pd.read_csv(
         "test.csv")
     test_set = CustomImageDataset(testing, image_directory, num_class, transform=test_transform)
-    test_loader = DataLoader(test_set, batch_size=32, shuffle=False, num_workers=1, pin_memory=True)
+    test_loader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=1, pin_memory=True)
     print(test_model(model, test_loader, device))
 
 # Function for training and validation
-def train_validate_model(model, device, train_loader, val_loader, epochs=100, checkpoint_path=None, ignore_load = True):
+def train_validate_model(model, device, train_loader, val_loader, epochs=1000, checkpoint_path=None):
     if checkpoint_path is not None:
-        early_stopping = EarlyStopping(patience=6, verbose=True, zip_file=checkpoint_path)
+        early_stopping = EarlyStopping(patience=21, verbose=True, zip_file=checkpoint_path)
     else:
-        early_stopping = EarlyStopping(patience=6, verbose=True)
+        early_stopping = EarlyStopping(patience=21, verbose=True)
+
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0001)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
+    optimizer_mae = optim.Adam(model.model_ed.parameters(), lr=0.00015, weight_decay=0.0001)
+    optimizer_vae = optim.Adam(model.model_vae.parameters(), lr=0.00075, weight_decay=0.0001)
+    scheduler_mae = ReduceLROnPlateau(optimizer_mae, mode='min', factor=0.1, patience=3)
+    scheduler_vae = ReduceLROnPlateau(optimizer_vae, mode='min', factor=0.1, patience=3)
     model.to(device)
     start_epoch = 0
 
+    # freeze most layers in the mae but the last couple
+    for param in model.model_ed.mae.parameters():
+    	param.requires_grad = False
 
-    # Resume from checkpoint if provided
-    if not ignore_load:
-        if checkpoint_path and os.path.exists(checkpoint_path) and os.path.isfile(checkpoint_path):
-            model, optimizer, scheduler, start_epoch = early_stopping.load_checkpoint(model, optimizer, scheduler, device)
+    for block in model.model_ed.mae.blocks[-3:]:
+        for param in block.parameters():
+            param.requires_grad = True
+
+    for param in model.model_ed.mae.norm.parameters():
+        param.requires_grad = True
+    model.model_ed.mae.pos_embed.requires_grad = True
+
+
 
     for epoch in range(start_epoch, epochs):
         model.train()
@@ -105,16 +123,19 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
 
-            optimizer.zero_grad()
+            optimizer_mae.zero_grad()
+            optimizer_vae.zero_grad()
             mae, vae = model(inputs)
 
-            output = (mae + vae)/2
+
+
+            output = (mae + vae) / 2
             vae_loss = criterion(vae, labels)
             mae_loss = criterion(mae, labels)
-            loss = (vae_loss + mae_loss)/2
+            total_loss_for_batch = (vae_loss + mae_loss) / 2
 
             # Accumulate the losses
-            running_loss += loss.item()
+            running_loss += total_loss_for_batch.item()
             running_vae_loss += vae_loss.item()
             running_mae_loss += mae_loss.item()
 
@@ -125,11 +146,12 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
             all_preds.extend(predicted.detach().cpu().numpy())
             all_labels.extend(labels.detach().cpu().numpy())
 
-            print(f"Train Loss: {running_loss:.4f} | Train VAE Loss: {running_vae_loss:.4f} | "
-                  f"Train MAE Loss: {running_mae_loss:.4f}")
+            mae_loss.backward()
+            optimizer_mae.step()
 
-            loss.backward()  # Backpropagate only during training
-            optimizer.step()
+            # Backpropagate for vae model
+            vae_loss.backward()
+            optimizer_vae.step()
 
         train_loss = running_loss / total
         train_acc = 100 * correct / total
@@ -153,21 +175,21 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
             for inputs, labels in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
                 mae, vae = model(inputs)
+
                 output = (mae + vae) / 2
                 vae_loss = criterion(vae, labels)
                 mae_loss = criterion(mae, labels)
-                loss = (vae_loss + mae_loss)/2
+                total_loss_for_batch = (vae_loss + mae_loss) / 2
+                val_loss += total_loss_for_batch.item()
 
-
-                val_loss += loss.item()
                 # Accumulate the validation losses
                 val_vae_loss += vae_loss.item()
                 val_mae_loss += mae_loss.item()
 
+                _, predicted = torch.max(output, 1)
                 all_val_preds.extend(predicted.detach().cpu().numpy())
                 all_val_labels.extend(labels.detach().cpu().numpy())
 
-                _, predicted = torch.max(output, 1)
                 correct += (predicted == labels).sum().item()
                 total += labels.size(0)
 
@@ -182,18 +204,22 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=100, ch
         val_f1 = f1_score(all_val_labels, all_val_preds, average='binary', zero_division=0)
         val_auc = roc_auc_score(all_val_labels, all_val_preds)
 
-        # Print average losses for train and validation
         print(f"Epoch {epoch + 1}/{epochs} | ")
         print(f"Train Loss: {train_loss:.4f} | Train VAE Loss: {running_vae_loss:.4f} | "
-              f"Train MAE Loss: {running_mae_loss:.4f} | Train Acc: {train_acc:.2f}% | ")
+            f"Train MAE Loss: {running_mae_loss:.4f} | "
+            f"Train Acc: {train_acc:.2f}% | ")
         print(f"Val Loss: {val_loss:.4f} | Val VAE Loss: {val_vae_loss:.4f} | "
-              f"Val MAE Loss: {val_mae_loss:.4f} | Val Acc: {val_acc:.2f}%")
+            f"Val MAE Loss: {val_mae_loss:.4f} | "
+            f"Val Acc: {val_acc:.2f}%")
+
+
         print(f"Precision: {precision:.4f} | Recall: {recall:.4f} | F1 Score: {f1:.4f} | ")
         print(f"Val Precision: {val_precision:.4f} | Val Recall: {val_recall:.4f} | Val F1 Score: {val_f1:.4f} | Val AUC: {val_auc:.4f}")
 
-        scheduler.step(val_loss)
+        scheduler_mae.step(val_mae_loss)
+        scheduler_vae.step(val_vae_loss)
 
-        early_stopping(val_loss, epoch, model, optimizer, scheduler)
+        early_stopping(val_loss, epoch, model, optimizer_vae, scheduler_vae)
 
         if early_stopping.early_stop:
             early_stopping.load_best_model(model)
@@ -218,14 +244,16 @@ def test_model(model, test_loader, device):
         for inputs, labels in test_loader:
             inputs, labels = inputs.to(device), labels.to(device)
 
-            mae, vae, reconstruction_loss, kl_loss = model(inputs)
-            output = (mae + vae)/2
+            #mae, vae, reconstruction_loss, kl_loss = model(inputs)
+            mae, vae = model(inputs)
+            output = (mae + vae) / 2
             vae_loss = criterion(vae, labels)
             mae_loss = criterion(mae, labels)
-            loss = (vae_loss + mae_loss)/2
+ 
+            total_loss_for_batch = (vae_loss + mae_loss) / 2
 
             # Accumulate losses
-            total_loss += loss.item()
+            total_loss += total_loss_for_batch.item()
             total_vae_loss += vae_loss.item()
             total_mae_loss += mae_loss.item()
 

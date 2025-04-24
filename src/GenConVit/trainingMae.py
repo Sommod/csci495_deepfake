@@ -2,6 +2,7 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 import mediapipe as mp
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from Dataset import train_transform
 from Dataset import MaeDataset, test_transform
@@ -13,26 +14,26 @@ def trainingMae(training, validating, device, directory):
 
     maeTraining = training[training["label"] == 1]
     maeValidating = validating[validating["label"] == 1]
-    
-    # remove this during when doing full testing
-    maeTraining = maeTraining[:len(maeTraining)//1000]
-    maeValidating = maeValidating[:len(maeValidating)//1000]
+
+    maeTraining = maeTraining[:10000]
+    maeValidating = maeValidating[:2000]
 
     model_mae = MaskedAutoEncoderViT(256)
 
     # ensure num_workers = 0 unless you want warnings from mediapipe screaming at you
     train_set = MaeDataset(maeTraining, directory, transform=train_transform)
     val_set = MaeDataset(maeValidating, directory, transform=test_transform)
-    train_loader = DataLoader(train_set, batch_size=64, shuffle=True, num_workers=1, pin_memory=True, worker_init_fn=worker_init_fn)
-    val_loader = DataLoader(val_set, batch_size=64, shuffle=True, num_workers=1, pin_memory=True, worker_init_fn=worker_init_fn)
+    train_loader = DataLoader(train_set, batch_size=128, shuffle=True, num_workers=1, pin_memory=True, worker_init_fn=worker_init_fn)
+    val_loader = DataLoader(val_set, batch_size=128, shuffle=True, num_workers=1, pin_memory=True, worker_init_fn=worker_init_fn)
 
     train_validate_mae(model_mae, device, train_loader, val_loader)
     return model_mae
 
 # Function for training and validation
-def train_validate_mae(model, device, train_loader, val_loader, epochs=100):
-    early_stopping = EarlyStopping(patience=5, verbose=True, path ='MaeCheckPoint.pth', save_all = False)
-    optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0001)
+def train_validate_mae(model, device, train_loader, val_loader, epochs=1000):
+    early_stopping = EarlyStopping(patience=60, verbose=True, path ='MaeCheckPoint.pth', save_all = False)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
     model.to(device)
     for epoch in range(epochs):
         model.train()
@@ -65,8 +66,13 @@ def train_validate_mae(model, device, train_loader, val_loader, epochs=100):
 
         val_loss /= total
 
+        if val_loss < 250.0:
+            model.useL1 = True
+
         print(
             f"Epoch {epoch + 1}/{epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+
+        scheduler.step(val_loss)
 
         early_stopping(val_loss, epoch, model)
         if early_stopping.early_stop:

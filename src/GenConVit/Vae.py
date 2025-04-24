@@ -10,33 +10,26 @@ class Encoder(nn.Module):
             nn.Conv2d(3, 8, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(8),
             nn.LeakyReLU(),
-            #nn.Dropout2d(0.1),
 
             nn.Conv2d(8, 16, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(16),
             nn.LeakyReLU(),
-            #nn.Dropout2d(0.1),
 
             nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(32),
             nn.LeakyReLU(),
-            #nn.Dropout2d(0.1),
 
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(),
-            #nn.Dropout2d(0.1),
 
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(128),
             nn.LeakyReLU(),
-            #nn.Dropout2d(0.1),
 
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(256),
-            nn.LeakyReLU(),
-            #nn.Dropout2d(0.1),
-
+            nn.LeakyReLU()
         )
 
         self.latent_dims = latent_dims
@@ -65,42 +58,33 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
 
         self.latent_dims = latent_dims
-        self.feature_map_size = feature_map_size  # this is the height/width of the feature map after upsampling
+        self.feature_map_size = feature_map_size
         self.output_channels = output_channels
 
-        # Fully connected layer to map latent to initial feature map size
         self.fc = nn.Linear(latent_dims, 256 * feature_map_size * feature_map_size)
 
         # Transposed Convolutional layers
         self.features = nn.Sequential(
             nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-            #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-	        #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-	        #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-	        #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(16, 8, kernel_size=2, stride=2),
             nn.LeakyReLU(),
-            #nn.Dropout2d(0.01),
             nn.ConvTranspose2d(8, 3, kernel_size=2, stride=2),
             nn.LeakyReLU()
 
         )
 
     def forward(self, x):
-        # x is the latent vector, pass it through the fully connected layer
         x = self.fc(x)
 
-        # Reshape it into the required feature map size for the convolution layers
         x = x.view(-1, 256, self.feature_map_size, self.feature_map_size)
 
-        # Pass it through the transposed convolutional layers
         x = self.features(x)
         return x
 

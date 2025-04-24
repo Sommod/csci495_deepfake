@@ -11,11 +11,11 @@ class GenConViTVAE(nn.Module):
     def __init__(self, img_size, num_classes, vae, pretrained=True):
         super(GenConViTVAE, self).__init__()
 
-        self.vae = vae
+        self.vae = vae.encoder
 
         # backbones
         self.embedder = create_model('swinv2_tiny_window8_256', pretrained=pretrained)
-        self.convnext_backbone = create_model('convnext_tiny', pretrained=pretrained, num_classes=1000, drop_path_rate=0, head_init_scale=1.0)
+        self.convnext_backbone = create_model('convnext_tiny', pretrained=pretrained, num_classes=1024, drop_path_rate=0, head_init_scale=1.0)
         self.convnext_backbone.patch_embed = HybridEmbed(self.embedder, img_size, embed_dim=768)
         self.num_feature = self.convnext_backbone.head.fc.out_features * 2
 
@@ -25,22 +25,13 @@ class GenConViTVAE(nn.Module):
         self.fc2 = nn.Linear(self.num_feature//4, num_classes)
         self.relu = nn.ReLU()
 
-    def train(self, mode=True):
-        # Keep mae in eval mode regardless of the mode of GenConViTMae
-        super(GenConViTVAE, self).train(mode)
-        self.vae.eval()
-
-
     def forward(self, x):
-
-        #autoencoder
-        x_hat, _, _ = self.vae(x)
+        z, _ = self.vae(x)
 
         #backbone
         x1 = self.convnext_backbone(x)
-        x2 = self.convnext_backbone(x_hat)
 
-        x = torch.cat((x1,x2), dim=1)
+        x = torch.cat((x1, z), dim=1)
 
         # classifier
         x = self.fc2(self.relu(self.fc(self.relu(x))))

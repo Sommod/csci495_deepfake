@@ -2,7 +2,7 @@ import torch
 from torchvision.transforms import transforms
 
 from Dataset import train_transform, test_transform
-from GenContVit.Vae import VariationalAutoEncoder
+from GenContVit1.Vae import VariationalAutoEncoder
 import cv2
 from PIL import Image
 
