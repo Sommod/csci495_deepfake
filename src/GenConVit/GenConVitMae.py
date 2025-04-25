@@ -46,7 +46,7 @@ class SpatialFusion(nn.Module):
         self.mae_proj = nn.Conv2d(mae_dim, out_dim, kernel_size=1)
         self.conv_proj = nn.Conv2d(conv_dim, out_dim, kernel_size=1)
 
-        # attention mechanism
+        # global attention mechanism
         self.attn = nn.Sequential(
             nn.Conv2d(2 * out_dim, out_dim, kernel_size=1),
             nn.ReLU(),
