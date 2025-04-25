@@ -1,36 +1,65 @@
-import os
-
 import cv2
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
+from PIL import Image
+from torchvision.transforms import transforms
 
-from codeFor490.Dataset import test_transform
-from codeFor490.GenContVit.Mae1 import MaskedAutoEncoderViT
+from Dataset import test_transform
+from GenContVit1.Mae import MaskedAutoEncoderViT
+import mediapipe as mp
 
 
 def main():
-    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #if os.path.exists('MaeCheckPoint.pth'):
-    #    model_mae = MaskedAutoEncoderViT(256)
-    #    #model_mae.to(device)
-    #    model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True,  map_location=torch.device('cpu')))
-    model_mae = MaskedAutoEncoderViT(256)
-    model_mae.eval()
-    image = cv2.imread("./real-vs-fake/test/real/00007.jpg", cv2.IMREAD_COLOR_RGB)
+    image_path = "real-vs-fake/test/real/00001.jpg"
+    #torch.Size([1, 3, 256, 256])
+    #9451.72265625
 
-    x = test_transform(image)
+    #image_path = "real-vs-fake/train/real/00006.jpg"
+    #torch.Size([1, 3, 256, 256])
+    #10665.046875
 
-    np_img1 = x.permute(1, 2, 0).detach().numpy()
-    cv2.imshow("image1", np_img1)
-    cv2.waitKey(0)
+    #image_path = "real-vs-fake/train/fake/0A0IAK9X2W.jpg"
+    #torch.Size([1, 3, 256, 256])
+    #8410.689453125
 
-    x = x.unsqueeze(0)
-    x, _ = model_mae(x)
-    x = x.squeeze(0)
-    np_img = x.permute(1, 2, 0).detach().numpy()
-    cv2.imshow("image", np_img)
-    cv2.waitKey(0)
+    #image_path = "real-vs-fake/test/fake/0BI6V9VNPK.jpg"
 
+    # Load image with OpenCV (in BGR), then convert to RGB
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
+    # Convert to PIL image
+    image_pil = Image.fromarray(image)
+
+    image_pil.show()
+
+    image_tensor = test_transform(image_pil).unsqueeze(0)  # Add batch dimension
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Assuming your VAE class is defined elsewhere
+    vae = MaskedAutoEncoderViT(256).to(device)
+    vae.load_state_dict(torch.load('MaeCheckPoint3.pth', map_location=device))
+    vae.eval()
+
+    image_tensor = image_tensor.to(device)
+
+    print(image_tensor.shape)
+
+    with torch.no_grad():
+        output, loss = vae(image_tensor)
+
+    # Convert tensor to image
+    inv_normalize = transforms.Normalize(
+        mean=[-m / s for m, s in zip([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])],
+        std=[1 / s for s in [0.229, 0.224, 0.225]]
+    )
+    output = inv_normalize(output.squeeze(0).cpu())
+    output_pil = transforms.ToPILImage()(output)
+    output_pil.show()
+
+    print(loss.item())
 
 
 if __name__ == "__main__":

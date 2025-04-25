@@ -13,25 +13,19 @@ def trainingVae(training, validating, device, directory):
 
     model_vae = VariationalAutoEncoder()
 
-    # remove this when doing full testing
-    training = training[:len(training)//50]
-    validating = validating[:len(validating)//50]
-    print(len(training))
-    print(len(validating))
-
     # ensure num_workers = 0 unless you want warnings from mediapipe screaming at you
     train_set = CustomImageDataset(training, directory, 2, transform=train_transform)
     val_set = CustomImageDataset(validating, directory, 2, transform=test_transform)
-    train_loader = DataLoader(train_set, batch_size=128, shuffle=True, num_workers=1, pin_memory=True)
-    val_loader = DataLoader(val_set, batch_size=128, shuffle=True, num_workers=1, pin_memory=True)
+    train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=1, pin_memory=True)
+    val_loader = DataLoader(val_set, batch_size=256, shuffle=True, num_workers=1, pin_memory=True)
 
     train_validate_vae(model_vae, device, train_loader, val_loader)
     return model_vae
 
 # Function for training and validation
 def train_validate_vae(model, device, train_loader, val_loader, epochs=1000):
-    early_stopping = EarlyStopping(patience=20, verbose=True, path ='VaeCheckPoint.pth', save_all = False)
-    optimizer = optim.Adam(model.parameters(), lr=0.00075, weight_decay = .0001)
+    early_stopping = EarlyStopping(patience=60, verbose=True, path ='VaeCheckPoint.pth', save_all = False)
+    optimizer = optim.Adam(model.parameters(), lr=0.00075, weight_decay=0.0001)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
     model.to(device)
 
