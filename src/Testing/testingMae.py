@@ -5,8 +5,8 @@ import torch
 from PIL import Image
 from torchvision.transforms import transforms
 
-from Dataset import test_transform
-from GenContVit1.Mae import MaskedAutoEncoderViT
+from ..Util.Dataset import test_transform
+from ..model.Mae import MaskedAutoEncoderViT
 import mediapipe as mp
 
 

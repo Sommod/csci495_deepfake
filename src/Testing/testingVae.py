@@ -1,8 +1,8 @@
 import torch
 from torchvision.transforms import transforms
 
-from Dataset import train_transform, test_transform
-from GenContVit1.Vae import VariationalAutoEncoder
+from ..Util.Dataset import train_transform, test_transform
+from ..model.Vae import VariationalAutoEncoder
 import cv2
 from PIL import Image
 
