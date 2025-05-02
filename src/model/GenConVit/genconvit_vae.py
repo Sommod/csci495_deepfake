@@ -3,8 +3,8 @@ import torch.nn as nn
 from torchvision import transforms
 from timm import create_model
 import torch.nn.functional as F
-from GenContVit.model_embedder import HybridEmbed
-from GenContVit.Vae import VariationalAutoEncoder
+from ..model_embedder import HybridEmbed
+from ..Vae import VariationalAutoEncoder
 
 
 class GenConViTVAE(nn.Module):
