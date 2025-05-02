@@ -75,7 +75,7 @@ def main():
     train_validate_model(model, device, train_loader, val_loader, epochs=1000, checkpoint_path='Output/checkpoint.zip')
 
     # testing
-    testing = pd.read_csv("Util/Labels/test.csv")
+    testing = pd.read_csv(os.path.join(os.getcwd(), "Util\\Labels\\test.csv"))
     test_set = CustomImageDataset(testing, image_directory, num_class, transform=test_transform)
     test_loader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=1, pin_memory=True)
     print(test_model(model, test_loader, device))
