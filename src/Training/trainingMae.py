@@ -4,10 +4,10 @@ from torch.utils.data import DataLoader
 import mediapipe as mp
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from ..Util.Dataset import MaeDataset, train_transform, test_transform
-from ..Util.EarlyStopping import EarlyStopping
-from ..model.Mae import MaskedAutoEncoderViT
-from ..Util.MaskingProcess import worker_init_fn
+from Util.Dataset import MaeDataset, train_transform, test_transform
+from Util.EarlyStopping import EarlyStopping
+from model.Mae import MaskedAutoEncoderViT
+from Util.MaskingProcess import worker_init_fn
 
 def trainingMae(training, validating, device, directory):
 

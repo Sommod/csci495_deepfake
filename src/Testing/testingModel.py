@@ -6,10 +6,10 @@ from torch import nn
 from torch.utils.data import DataLoader
 import seaborn as sns
 
-from ..Util.Dataset import CustomImageDataset, test_transform
-from ..model.Mae import MaskedAutoEncoderViT
-from ..model.Vae import VariationalAutoEncoder
-from ..model.GenConVit.genconvit import GenConViT
+from Util.Dataset import CustomImageDataset, test_transform
+from model.Mae import MaskedAutoEncoderViT
+from model.Vae import VariationalAutoEncoder
+from model.GenConVit.genconvit import GenConViT
 
 
 def main():

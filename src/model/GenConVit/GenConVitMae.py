@@ -1,6 +1,6 @@
 import torch.nn as nn
 from timm import create_model
-from ..model_embedder import HybridEmbed
+from model.model_embedder import HybridEmbed
 import torch
 import torch.nn.functional as F
 

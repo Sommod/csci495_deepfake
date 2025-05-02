@@ -4,8 +4,8 @@ from torch.utils.data import DataLoader
 import mediapipe as mp
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from ..Util.Dataset import CustomImageDataset, test_transform, train_transform
-from ..Util.EarlyStopping import EarlyStopping
+from Util.Dataset import CustomImageDataset, test_transform, train_transform
+from Util.EarlyStopping import EarlyStopping
 from model.Vae import VariationalAutoEncoder
 
 
