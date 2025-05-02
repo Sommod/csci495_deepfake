@@ -4,4 +4,4 @@
 
 # Runs the program (default is no args)
 run:
-	python3 Main.py $(args)
+	python3 Main.py
