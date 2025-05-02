@@ -6,7 +6,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from Dataset import CustomImageDataset, test_transform, train_transform
 from EarlyStopping import EarlyStopping
-from GenConVit.Vae import VariationalAutoEncoder
+from model.Vae import VariationalAutoEncoder
 
 
 def trainingVae(training, validating, device, directory):
