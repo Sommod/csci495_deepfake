@@ -7,23 +7,22 @@ from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_sco
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from EarlyStopping import EarlyStopping
-from Dataset import CustomImageDataset, train_transform, test_transform
-from GenContVit.Mae import MaskedAutoEncoderViT
-from GenContVit.genconvit import GenConViT
-from GenContVit.trainingMae import trainingMae
-from GenContVit.trainingVae import trainingVae
-from GenContVit.Vae import VariationalAutoEncoder
+from Util.EarlyStopping import EarlyStopping
+from Util.Dataset import CustomImageDataset, train_transform, test_transform
+from model.Mae import MaskedAutoEncoderViT
+from model.GenConVit.genconvit import GenConViT
+from Training.trainingMae import trainingMae
+from Training.trainingVae import trainingVae
+from model.Vae import VariationalAutoEncoder
 
 
 def main():
     # read from csv
-    trainings = pd.read_csv(
-        "train.csv")
-    validatings = pd.read_csv(
-        "valid.csv")
+    trainings = pd.read_csv("Util/Labels/train.csv")
+    validatings = pd.read_csv("Util/Labels/valid.csv")
+
     # get training images path
-    image_directory = r"real-vs-fake/"
+    image_directory = r"data/real-vs-fake/"
 
 
     trainings = trainings.sample(frac=1, random_state=42)
@@ -39,9 +38,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mae_pretrained = True
-    if os.path.exists('VaeCheckPoint.pth') and mae_pretrained:
+    if os.path.exists('Output/VaeCheckPoint.pth') and mae_pretrained:
         model_vae = VariationalAutoEncoder()
-        model_vae.load_state_dict(torch.load('VaeCheckPoint.pth', weights_only=True, map_location=device))
+        model_vae.load_state_dict(torch.load('Output/VaeCheckPoint.pth', weights_only=True, map_location=device))
     else:
         model_vae = trainingVae(training, validating, device, image_directory)
     print("Vae loaded")
@@ -49,7 +48,7 @@ def main():
     mae_pretrained = True
     if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
         model_mae = MaskedAutoEncoderViT(256)
-        model_mae.load_state_dict(torch.load('MaeCheckPoint.pth', weights_only=True, map_location=device))
+        model_mae.load_state_dict(torch.load('Output/MaeCheckPoint.pth', weights_only=True, map_location=device))
     else:
         model_mae = trainingMae(trainings, validatings, device, image_directory)
     print("Mae loaded")
@@ -73,11 +72,10 @@ def main():
     torch.cuda.empty_cache()
 
     #training and validating
-    train_validate_model(model, device, train_loader, val_loader, epochs=1000, checkpoint_path=None)#"checkpoint.zip")
+    train_validate_model(model, device, train_loader, val_loader, epochs=1000, checkpoint_path='Output/checkpoint.zip')
 
     # testing
-    testing = pd.read_csv(
-        "test.csv")
+    testing = pd.read_csv("Util/Labels/test.csv")
     test_set = CustomImageDataset(testing, image_directory, num_class, transform=test_transform)
     test_loader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=1, pin_memory=True)
     print(test_model(model, test_loader, device))
@@ -97,9 +95,9 @@ def train_validate_model(model, device, train_loader, val_loader, epochs=1000, c
     model.to(device)
     start_epoch = 0
 
-    # freeze most layers in the mae but the last couple
+    # Freeze most layers in the mae but the last couple
     for param in model.model_ed.mae.parameters():
-    	param.requires_grad = False
+        param.requires_grad = False
 
     for block in model.model_ed.mae.blocks[-3:]:
         for param in block.parameters():
