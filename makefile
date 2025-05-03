@@ -4,4 +4,4 @@
 
 # Runs the program (default is no args)
 run:
-	python3 Main.py
+	python3 src/Main.py
