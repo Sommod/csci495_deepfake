@@ -4,9 +4,9 @@ from torch.utils.data import DataLoader
 import mediapipe as mp
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from Dataset import CustomImageDataset, test_transform, train_transform
-from EarlyStopping import EarlyStopping
-from GenConVit.Vae import VariationalAutoEncoder
+from Util.Dataset import CustomImageDataset, test_transform, train_transform
+from Util.EarlyStopping import EarlyStopping
+from model.Vae import VariationalAutoEncoder
 
 
 def trainingVae(training, validating, device, directory):
@@ -24,7 +24,7 @@ def trainingVae(training, validating, device, directory):
 
 # Function for training and validation
 def train_validate_vae(model, device, train_loader, val_loader, epochs=1000):
-    early_stopping = EarlyStopping(patience=60, verbose=True, path ='VaeCheckPoint.pth', save_all = False)
+    early_stopping = EarlyStopping(patience=60, verbose=True, path ='Output/VaeCheckPoint.pth', save_all = False)
     optimizer = optim.Adam(model.parameters(), lr=0.00075, weight_decay=0.0001)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
     model.to(device)

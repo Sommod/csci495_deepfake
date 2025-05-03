@@ -4,11 +4,10 @@ from torch.utils.data import DataLoader
 import mediapipe as mp
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from Dataset import train_transform
-from Dataset import MaeDataset, test_transform
-from EarlyStopping import EarlyStopping
-from GenContVit.Mae import MaskedAutoEncoderViT
-from MaskingProcess import worker_init_fn
+from Util.Dataset import MaeDataset, train_transform, test_transform
+from Util.EarlyStopping import EarlyStopping
+from model.Mae import MaskedAutoEncoderViT
+from Util.MaskingProcess import worker_init_fn
 
 def trainingMae(training, validating, device, directory):
 
@@ -31,7 +30,7 @@ def trainingMae(training, validating, device, directory):
 
 # Function for training and validation
 def train_validate_mae(model, device, train_loader, val_loader, epochs=1000):
-    early_stopping = EarlyStopping(patience=60, verbose=True, path ='MaeCheckPoint.pth', save_all = False)
+    early_stopping = EarlyStopping(patience=60, verbose=True, path ='Output/MaeCheckPoint.pth', save_all = False)
     optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
     model.to(device)

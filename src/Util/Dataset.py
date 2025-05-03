@@ -4,8 +4,7 @@ from torch.utils.data import Dataset
 import pandas as pd
 import torch
 from torchvision.transforms import transforms
-from MaskingProcess import load_mask_processor
-from MaskingProcess import segmenter
+from Util.MaskingProcess import load_mask_processor, segmenter
 from PIL import Image
 
 train_transform = transforms.Compose([
