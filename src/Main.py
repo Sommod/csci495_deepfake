@@ -46,7 +46,7 @@ def main():
     print("Vae loaded")
 
     mae_pretrained = True
-    if os.path.exists('MaeCheckPoint.pth') and mae_pretrained:
+    if os.path.exists('Output/MaeCheckPoint.pth') and mae_pretrained:
         model_mae = MaskedAutoEncoderViT(256)
         model_mae.load_state_dict(torch.load('Output/MaeCheckPoint.pth', weights_only=True, map_location=device))
     else:
