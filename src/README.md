@@ -11,8 +11,11 @@ CSV files for the dataset.
 ## Running the program
 To run the program, either use the command:
 >python src/Main.py
->
 
 Additionally, you can run the **makefile** that is also present within the repository.
 
 Note: You must have the Current Working Directory *outside* the *src* folder to run the program. The paths for the program are set based on this location.
+
+## Model Creation
+If you want to re-train a particular part of the model, whether for testing or other corrupted files issuse, remove the **.pth** or the **checkpoint.zip** file from
+the **Output** directory. This will make the model re-train the portion missing. By default, the combination of the entire model is trained each time the program is ran.
